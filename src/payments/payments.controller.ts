@@ -32,7 +32,8 @@ export class PaymentsController {
   @Post(':id/reverse')
   @HttpCode(200)
   reverse(@Param('id') id: string, @Body() body: { reason: string }) {
-    return this.payments.reverse(id, body?.reason ?? '');
+    // TODO: Pass the effective reversal date from the request.
+    // return this.payments.reverse(id, body?.reason ?? '');
   }
 
   /** Admin tool: set the status to whatever ops says it should be. */

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Payment, ReceiverAccountType, SecCode } from './payment';
 import { PaymentStatus, ALL_STATUSES } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
@@ -63,8 +63,36 @@ export class PaymentsService {
     return this.setStatus(id, PaymentStatus.CANCELLED);
   }
 
-  public reverse(id: string, reason: string): Payment {
-    return this.setStatus(id, PaymentStatus.REVERSED, { failureReason: reason });
+  /**
+   * Reverses a settled payment.
+   *
+   * @param reversalDate The effective date of the reversing entry, formatted
+   * as YYYY-MM-DD. This is the business date used to enforce the five-banking-day
+   * reversal window, not the date or time when this method is processed.
+   */
+  public reverse(id: string, reason: string, reversalDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SETTLED) {
+      throw new Error(`Illegal transition from status ${payment.status} to REVERSED`);
+    }
+    if (!payment.settlementDate) {
+      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+    }
+    const permittedReasons = ['duplicate', 'wrong_amount', 'wrong_account', 'wrong_date'];
+    if (!permittedReasons.includes(reason)) {
+      throw new Error(`Reversal reason ${reason} is not permitted`);
+    }
+    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, reversalDate);
+    if (bankingDaysDelta < 0) {
+      throw new Error(`Reversal date precedes settlement for payment ${id}`);
+    }
+    if (bankingDaysDelta > 5) {
+      throw new Error(`Reversal must occur within 5 banking days of settlement`);
+    }
+    return this.setStatus(id, PaymentStatus.REVERSED, {
+      reversalReason: reason,
+      reversalDate,
+    });
   }
 
   public return(id: string, returnCode: string, returnDate: string): Payment {

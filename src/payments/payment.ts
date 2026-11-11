@@ -22,6 +22,9 @@ export interface Payment {
   /** Set when a return is applied. */
   returnCode: string | null;
   returnDate: string | null;
+  /** Set when a reversal is applied. */
+  reversalReason: string | null;
+  reversalDate: string | null;
   /** Free text the bank sent with a rejection, if any. */
   failureReason: string | null;
   createdAt: string;
