@@ -56,8 +56,12 @@ export class PaymentsService {
     return this.repo.findById(id);
   }
 
-  /** The sweep calls this when the entry has been put in the file for the bank. */
+  /** Marks a created payment as submitted after its entry is handed to the bank in a file. */
   public submit(id: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.CREATED) {
+      throw new Error(`Illegal transition from status ${payment.status} to SUBMITTED`);
+    }
     return this.setStatus(id, PaymentStatus.SUBMITTED);
   }
 
