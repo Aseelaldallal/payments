@@ -192,14 +192,8 @@ export class PaymentsService {
     });
   }
 
-  /**
-   * Sets the status. Any status, from any status. This is how every
-   * status on every payment has been written since the service was built:
-   * the sweep calls it when it hands a file to the bank, the bank report
-   * consumer calls it with whatever the file says, and ops call it from
-   * the admin tool when something looks wrong.
-   */
-  setStatus(id: string, status: PaymentStatus, patch: Partial<Payment> = {}): Payment {
+  /** Persists a status change after the public operation validates the transition. */
+  private setStatus(id: string, status: PaymentStatus, patch: Partial<Payment> = {}): Payment {
     if (!ALL_STATUSES.includes(status)) {
       throw new BadRequestException(`Unknown status ${status}`);
     }

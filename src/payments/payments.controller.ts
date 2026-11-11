@@ -1,6 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { CreatePaymentInput, PaymentsService } from './payments.service';
-import { PaymentStatus } from './payment-status';
 
 @Controller('payments')
 export class PaymentsController {
@@ -34,11 +33,5 @@ export class PaymentsController {
   reverse(@Param('id') id: string, @Body() body: { reason: string }) {
     // TODO: Pass the effective reversal date from the request.
     // return this.payments.reverse(id, body?.reason ?? '');
-  }
-
-  /** Admin tool: set the status to whatever ops says it should be. */
-  @Patch(':id/status')
-  setStatus(@Param('id') id: string, @Body() body: { status: PaymentStatus }) {
-    return this.payments.setStatus(id, body.status);
   }
 }
