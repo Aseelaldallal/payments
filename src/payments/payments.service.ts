@@ -43,6 +43,8 @@ export class PaymentsService {
       status: PaymentStatus.CREATED,
       returnCode: null,
       returnDate: null,
+      reversalReason: null,
+      reversalDate: null,
       failureReason: null,
       createdAt: now,
       updatedAt: now,
@@ -66,9 +68,9 @@ export class PaymentsService {
   /**
    * Reverses a settled payment.
    *
-   * @param reversalDate The effective date of the reversing entry, formatted
-   * as YYYY-MM-DD. This is the business date used to enforce the five-banking-day
-   * reversal window, not the date or time when this method is processed.
+   * @param reason The reason for originating the reversing entry.
+   * @param reversalDate The effective date of the reversing entry, formatted as
+   * YYYY-MM-DD. This business date determines the five-banking-day window.
    */
   public reverse(id: string, reason: string, reversalDate: string): Payment {
     const payment = this.get(id);
@@ -95,6 +97,12 @@ export class PaymentsService {
     });
   }
 
+  /**
+   * Applies a return received for a settled payment.
+   *
+   * @param returnCode The ACH return reason code.
+   * @param returnDate The settlement date of the return entry, formatted as YYYY-MM-DD.
+   */
   public return(id: string, returnCode: string, returnDate: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
