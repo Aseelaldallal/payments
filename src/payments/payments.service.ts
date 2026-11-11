@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Payment, ReceiverAccountType, SecCode } from './payment';
 import { PaymentStatus, ALL_STATUSES } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
+import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 
 export interface CreatePaymentInput {
   partnerId: string;
@@ -16,7 +17,7 @@ export interface CreatePaymentInput {
 export class PaymentsService {
   constructor(private readonly repo: PaymentsRepository) {}
 
-  create(input: CreatePaymentInput): Payment {
+  public create(input: CreatePaymentInput): Payment {
     if (!input.partnerId) throw new BadRequestException('partnerId is required');
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
       throw new BadRequestException('amountCents must be a positive integer');
@@ -49,8 +50,67 @@ export class PaymentsService {
     return this.repo.save(payment);
   }
 
-  get(id: string): Payment {
+  public get(id: string): Payment {
     return this.repo.findById(id);
+  }
+
+  /** The sweep calls this when the entry has been put in the file for the bank. */
+  public submit(id: string): Payment {
+    return this.setStatus(id, PaymentStatus.SUBMITTED);
+  }
+
+  public cancel(id: string): Payment {
+    return this.setStatus(id, PaymentStatus.CANCELLED);
+  }
+
+  public reverse(id: string, reason: string): Payment {
+    return this.setStatus(id, PaymentStatus.REVERSED, { failureReason: reason });
+  }
+
+  public return(id: string, returnCode: string, returnDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SETTLED) {
+      throw new Error(`Illegal transition from status ${payment.status} to RETURNED`);
+    }
+    if (!payment.settlementDate) {
+      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+    }
+    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, returnDate);
+    const calendarDaysDelta = calendarDaysBetween(payment.settlementDate, returnDate);
+    const notAuthorizedFamily = ['R05', 'R07', 'R10', 'R11'];
+    const hasExtendedWindow =
+      payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
+    if (calendarDaysDelta < 0) {
+      throw new Error(`Return date precedes settlement for payment ${id}`);
+    }
+    if (hasExtendedWindow && calendarDaysDelta > 60) {
+      throw new Error(`Return date window has passed for payment ${id}`);
+    }
+    if (!hasExtendedWindow && bankingDaysDelta > 2) {
+      throw new Error(`Return date window has passed for payment ${id}`);
+    }
+    return this.setStatus(id, PaymentStatus.RETURNED, {
+      returnCode,
+      returnDate,
+    });
+  }
+
+  public acknowledge(id: string, settlementDate: string): Payment {
+    return this.setStatus(id, PaymentStatus.PROCESSING, {
+      settlementDate,
+    });
+  }
+
+  public settle(id: string, settlementDate: string): Payment {
+    return this.setStatus(id, PaymentStatus.SETTLED, {
+      settlementDate,
+    });
+  }
+
+  public fail(id: string, failureReason: string): Payment {
+    return this.setStatus(id, PaymentStatus.FAILED, {
+      failureReason,
+    });
   }
 
   /**
@@ -67,18 +127,5 @@ export class PaymentsService {
     const payment = this.repo.findById(id);
     Object.assign(payment, patch, { status, updatedAt: new Date().toISOString() });
     return this.repo.save(payment);
-  }
-
-  /** The sweep calls this when the entry has been put in the file for the bank. */
-  submit(id: string): Payment {
-    return this.setStatus(id, PaymentStatus.SUBMITTED);
-  }
-
-  cancel(id: string): Payment {
-    return this.setStatus(id, PaymentStatus.CANCELLED);
-  }
-
-  reverse(id: string, reason: string): Payment {
-    return this.setStatus(id, PaymentStatus.REVERSED, { failureReason: reason });
   }
 }
