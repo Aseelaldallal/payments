@@ -173,7 +173,20 @@ export class PaymentsService {
     });
   }
 
+  /**
+   * Fails a payment before settlement.
+   *
+   * @param failureReason The reason the payment failed.
+   */
   public fail(id: string, failureReason: string): Payment {
+    const payment = this.get(id);
+    if (
+      payment.status !== PaymentStatus.CREATED &&
+      payment.status !== PaymentStatus.SUBMITTED &&
+      payment.status !== PaymentStatus.PROCESSING
+    ) {
+      throw new Error(`Illegal transition from status ${payment.status} to FAILED`);
+    }
     return this.setStatus(id, PaymentStatus.FAILED, {
       failureReason,
     });
