@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Payment, ReceiverAccountType, SecCode } from './payment';
 import { PaymentStatus, ALL_STATUSES } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
+import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 
 export interface CreatePaymentInput {
   partnerId: string;
@@ -16,7 +17,7 @@ export interface CreatePaymentInput {
 export class PaymentsService {
   constructor(private readonly repo: PaymentsRepository) {}
 
-  create(input: CreatePaymentInput): Payment {
+  public create(input: CreatePaymentInput): Payment {
     if (!input.partnerId) throw new BadRequestException('partnerId is required');
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
       throw new BadRequestException('amountCents must be a positive integer');
@@ -42,6 +43,8 @@ export class PaymentsService {
       status: PaymentStatus.CREATED,
       returnCode: null,
       returnDate: null,
+      reversalReason: null,
+      reversalDate: null,
       failureReason: null,
       createdAt: now,
       updatedAt: now,
@@ -49,36 +52,153 @@ export class PaymentsService {
     return this.repo.save(payment);
   }
 
-  get(id: string): Payment {
+  public get(id: string): Payment {
     return this.repo.findById(id);
   }
 
+  /** Marks a created payment as submitted after its entry is handed to the bank in a file. */
+  public submit(id: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.CREATED) {
+      throw new Error(`Illegal transition from status ${payment.status} to SUBMITTED`);
+    }
+    return this.setStatus(id, PaymentStatus.SUBMITTED);
+  }
+
+  /** Cancels a created payment before its entry is handed to the bank. */
+  public cancel(id: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.CREATED) {
+      throw new Error(`Illegal transition from status ${payment.status} to CANCELLED`);
+    }
+    return this.setStatus(id, PaymentStatus.CANCELLED);
+  }
+
   /**
-   * Sets the status. Any status, from any status. This is how every
-   * status on every payment has been written since the service was built:
-   * the sweep calls it when it hands a file to the bank, the bank report
-   * consumer calls it with whatever the file says, and ops call it from
-   * the admin tool when something looks wrong.
+   * Reverses a settled payment.
+   *
+   * @param reason The reason for originating the reversing entry.
+   * @param reversalDate The effective date of the reversing entry, formatted as
+   * YYYY-MM-DD. This business date determines the five-banking-day window.
    */
-  setStatus(id: string, status: PaymentStatus, patch: Partial<Payment> = {}): Payment {
+  public reverse(id: string, reason: string, reversalDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SETTLED) {
+      throw new Error(`Illegal transition from status ${payment.status} to REVERSED`);
+    }
+    if (!payment.settlementDate) {
+      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+    }
+    const permittedReasons = ['duplicate', 'wrong_amount', 'wrong_account', 'wrong_date'];
+    if (!permittedReasons.includes(reason)) {
+      throw new Error(`Reversal reason ${reason} is not permitted`);
+    }
+    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, reversalDate);
+    if (bankingDaysDelta < 0) {
+      throw new Error(`Reversal date precedes settlement for payment ${id}`);
+    }
+    if (bankingDaysDelta > 5) {
+      throw new Error(`Reversal must occur within 5 banking days of settlement`);
+    }
+    return this.setStatus(id, PaymentStatus.REVERSED, {
+      reversalReason: reason,
+      reversalDate,
+    });
+  }
+
+  /**
+   * Applies a return received for a settled payment.
+   *
+   * @param returnCode The ACH return reason code.
+   * @param returnDate The settlement date of the return entry, formatted as YYYY-MM-DD.
+   */
+  public return(id: string, returnCode: string, returnDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SETTLED) {
+      throw new Error(`Illegal transition from status ${payment.status} to RETURNED`);
+    }
+    if (!payment.settlementDate) {
+      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+    }
+    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, returnDate);
+    const calendarDaysDelta = calendarDaysBetween(payment.settlementDate, returnDate);
+    const notAuthorizedFamily = ['R05', 'R07', 'R10', 'R11'];
+    const hasExtendedWindow =
+      payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
+    if (calendarDaysDelta < 0) {
+      throw new Error(`Return date precedes settlement for payment ${id}`);
+    }
+    if (hasExtendedWindow && calendarDaysDelta > 60) {
+      throw new Error(`Return date window has passed for payment ${id}`);
+    }
+    if (!hasExtendedWindow && bankingDaysDelta > 2) {
+      throw new Error(`Return date window has passed for payment ${id}`);
+    }
+    return this.setStatus(id, PaymentStatus.RETURNED, {
+      returnCode,
+      returnDate,
+    });
+  }
+
+  /**
+   * Records the bank's acknowledgement of a submitted payment.
+   *
+   * @param settlementDate The settlement date assigned by the bank, formatted as YYYY-MM-DD.
+   */
+  public acknowledge(id: string, settlementDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SUBMITTED) {
+      throw new Error(`Illegal transition from status ${payment.status} to PROCESSING`);
+    }
+    return this.setStatus(id, PaymentStatus.PROCESSING, {
+      settlementDate,
+    });
+  }
+
+  /**
+   * Settles a payment that is currently processing.
+   *
+   * @param settlementDate The bank-reported settlement date, formatted as YYYY-MM-DD.
+   */
+  public settle(id: string, settlementDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.PROCESSING) {
+      throw new Error(`Illegal transition from status ${payment.status} to SETTLED`);
+    }
+    if (!settlementDate) {
+      throw new Error(`Settlement date is required to settle payment ${id}`);
+    }
+    return this.setStatus(id, PaymentStatus.SETTLED, {
+      settlementDate,
+    });
+  }
+
+  /**
+   * Fails a payment before settlement.
+   *
+   * @param failureReason The reason the payment failed.
+   */
+  public fail(id: string, failureReason: string): Payment {
+    const payment = this.get(id);
+    if (
+      payment.status !== PaymentStatus.CREATED &&
+      payment.status !== PaymentStatus.SUBMITTED &&
+      payment.status !== PaymentStatus.PROCESSING
+    ) {
+      throw new Error(`Illegal transition from status ${payment.status} to FAILED`);
+    }
+    return this.setStatus(id, PaymentStatus.FAILED, {
+      failureReason,
+    });
+  }
+
+  /** Persists a status change after the public operation validates the transition. */
+  private setStatus(id: string, status: PaymentStatus, patch: Partial<Payment> = {}): Payment {
     if (!ALL_STATUSES.includes(status)) {
       throw new BadRequestException(`Unknown status ${status}`);
     }
     const payment = this.repo.findById(id);
     Object.assign(payment, patch, { status, updatedAt: new Date().toISOString() });
     return this.repo.save(payment);
-  }
-
-  /** The sweep calls this when the entry has been put in the file for the bank. */
-  submit(id: string): Payment {
-    return this.setStatus(id, PaymentStatus.SUBMITTED);
-  }
-
-  cancel(id: string): Payment {
-    return this.setStatus(id, PaymentStatus.CANCELLED);
-  }
-
-  reverse(id: string, reason: string): Payment {
-    return this.setStatus(id, PaymentStatus.REVERSED, { failureReason: reason });
   }
 }
