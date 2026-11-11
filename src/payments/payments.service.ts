@@ -137,7 +137,19 @@ export class PaymentsService {
     });
   }
 
+  /**
+   * Settles a payment that is currently processing.
+   *
+   * @param settlementDate The bank-reported settlement date, formatted as YYYY-MM-DD.
+   */
   public settle(id: string, settlementDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.PROCESSING) {
+      throw new Error(`Illegal transition from status ${payment.status} to SETTLED`);
+    }
+    if (!settlementDate) {
+      throw new Error(`Settlement date is required to settle payment ${id}`);
+    }
     return this.setStatus(id, PaymentStatus.SETTLED, {
       settlementDate,
     });
