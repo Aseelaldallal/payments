@@ -23,26 +23,17 @@ export class BankService {
   private applyLine(line: BankReportLine): void {
     switch (line.type) {
       case 'ACKNOWLEDGED':
-        this.payments.setStatus(line.paymentId, PaymentStatus.PROCESSING, {
-          settlementDate: line.settlementDate,
-        });
+        this.payments.acknowledge(line.paymentId, line.settlementDate);
         return;
       case 'REJECTED':
       case 'OPERATOR_REJECTED':
-        this.payments.setStatus(line.paymentId, PaymentStatus.FAILED, {
-          failureReason: line.reason,
-        });
+        this.payments.fail(line.paymentId, line.reason);
         return;
       case 'SETTLED':
-        this.payments.setStatus(line.paymentId, PaymentStatus.SETTLED, {
-          settlementDate: line.settlementDate,
-        });
+        this.payments.settle(line.paymentId, line.settlementDate);
         return;
       case 'RETURN':
-        this.payments.setStatus(line.paymentId, PaymentStatus.RETURNED, {
-          returnCode: line.code,
-          returnDate: line.returnDate,
-        });
+        this.payments.return(line.paymentId, line.code, line.returnDate);
         return;
       case 'NOC':
         // The money moved; nothing to change on the payment. Someone should
