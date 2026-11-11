@@ -65,7 +65,12 @@ export class PaymentsService {
     return this.setStatus(id, PaymentStatus.SUBMITTED);
   }
 
+  /** Cancels a created payment before its entry is handed to the bank. */
   public cancel(id: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.CREATED) {
+      throw new Error(`Illegal transition from status ${payment.status} to CANCELLED`);
+    }
     return this.setStatus(id, PaymentStatus.CANCELLED);
   }
 
