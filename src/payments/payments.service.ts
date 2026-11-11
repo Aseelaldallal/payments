@@ -131,7 +131,16 @@ export class PaymentsService {
     });
   }
 
+  /**
+   * Records the bank's acknowledgement of a submitted payment.
+   *
+   * @param settlementDate The settlement date assigned by the bank, formatted as YYYY-MM-DD.
+   */
   public acknowledge(id: string, settlementDate: string): Payment {
+    const payment = this.get(id);
+    if (payment.status !== PaymentStatus.SUBMITTED) {
+      throw new Error(`Illegal transition from status ${payment.status} to PROCESSING`);
+    }
     return this.setStatus(id, PaymentStatus.PROCESSING, {
       settlementDate,
     });
