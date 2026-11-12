@@ -3,7 +3,7 @@ import {
   bankingDaysBetween,
   calendarDaysBetween,
   isBankingDay,
-} from '../src/shared/calendar';
+} from '../../src/shared/calendar';
 
 describe('calendar', () => {
   it('skips weekends', () => {
