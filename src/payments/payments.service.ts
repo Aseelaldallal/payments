@@ -5,6 +5,7 @@ import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 import { CreatePaymentInput } from './inputs/create-payment.input';
+import { ReversalReason } from './reversal-reason';
 
 @Injectable()
 export class PaymentsService {
@@ -72,10 +73,10 @@ export class PaymentsService {
    * Reverses a settled payment.
    *
    * @param reason The reason for originating the reversing entry.
-   * @param reversalDate The effective date of the reversing entry, formatted as
-   * YYYY-MM-DD. This business date determines the five-banking-day window.
+   * @returns The reversed payment with the current UTC date recorded as its
+   * reversal date.
    */
-  public reverse(id: string, reason: string, reversalDate: string): Payment {
+  public reverse(id: string, reason: ReversalReason): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
       throw new Error(`Illegal transition from status ${payment.status} to REVERSED`);
@@ -83,10 +84,7 @@ export class PaymentsService {
     if (!payment.settlementDate) {
       throw new Error(`Settlement date is not set on a settled payment ${id}`);
     }
-    const permittedReasons = ['duplicate', 'wrong_amount', 'wrong_account', 'wrong_date'];
-    if (!permittedReasons.includes(reason)) {
-      throw new Error(`Reversal reason ${reason} is not permitted`);
-    }
+    const reversalDate = new Date().toISOString().slice(0, 10);
     const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, reversalDate);
     if (bankingDaysDelta < 0) {
       throw new Error(`Reversal date precedes settlement for payment ${id}`);

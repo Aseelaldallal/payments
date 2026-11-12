@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { ReversePaymentDto } from './dto/reverse-payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -31,8 +32,7 @@ export class PaymentsController {
 
   @Post(':id/reverse')
   @HttpCode(200)
-  reverse(@Param('id') id: string, @Body() body: { reason: string }) {
-    // TODO: Pass the effective reversal date from the request.
-    // return this.payments.reverse(id, body?.reason ?? '');
+  reverse(@Param('id') id: string, @Body() body: ReversePaymentDto) {
+    return this.payments.reverse(id, body.reason);
   }
 }
