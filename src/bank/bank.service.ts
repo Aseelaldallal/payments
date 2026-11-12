@@ -35,9 +35,16 @@ export class BankService {
   }
 
   private processLine(line: BankReportLine): BankReportLineResult {
-    const paymentId =
-      typeof line?.paymentId === 'string' && line.paymentId ? line.paymentId : 'UNKNOWN';
-    const type = typeof line?.type === 'string' && line.type ? line.type : 'UNKNOWN';
+    let paymentId = 'UNKNOWN';
+    let type = 'UNKNOWN';
+    const lineType: unknown = line?.type;
+
+    if (typeof line?.paymentId === 'string' && line.paymentId !== '') {
+      paymentId = line.paymentId;
+    }
+    if (typeof lineType === 'string' && lineType !== '') {
+      type = lineType;
+    }
 
     try {
       this.applyLine(line);
