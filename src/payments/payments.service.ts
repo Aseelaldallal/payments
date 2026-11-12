@@ -1,35 +1,25 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Payment, ReceiverAccountType, SecCode } from './payment';
+import { Payment } from './payment';
 import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
-
-export interface CreatePaymentInput {
-  partnerId: string;
-  amountCents: number;
-  receiverAccountType: ReceiverAccountType;
-  secCode: SecCode;
-  effectiveDate: string;
-}
+import { CreatePaymentInput } from './inputs/create-payment.input';
 
 @Injectable()
 export class PaymentsService {
   constructor(private readonly repo: PaymentsRepository) {}
 
+  /**
+   * Creates a payment in the CREATED status from structurally validated input.
+   * The amount must be a whole number of cents greater than zero.
+   *
+   * @param input The application-layer values required to create the payment.
+   * @returns The newly created payment.
+   */
   public create(input: CreatePaymentInput): Payment {
-    if (!input.partnerId) throw new BadRequestException('partnerId is required');
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
       throw new BadRequestException('amountCents must be a positive integer');
-    }
-    if (input.receiverAccountType !== 'consumer' && input.receiverAccountType !== 'business') {
-      throw new BadRequestException('receiverAccountType must be consumer or business');
-    }
-    if (!['PPD', 'CCD', 'WEB', 'TEL'].includes(input.secCode)) {
-      throw new BadRequestException('secCode must be one of PPD, CCD, WEB, TEL');
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate)) {
-      throw new BadRequestException('effectiveDate must be an ISO date');
     }
     const now = new Date().toISOString();
     const payment: Payment = {

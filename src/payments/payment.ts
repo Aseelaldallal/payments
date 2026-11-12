@@ -14,7 +14,10 @@ export interface Payment {
   amountCents: number;
   receiverAccountType: ReceiverAccountType;
   secCode: SecCode;
-  /** What the platform asked for. ISO date. */
+  /**
+   * The requested ACH effective entry date: the date we want the entry to
+   * settle and post. The bank-assigned settlement date may differ.
+   */
   effectiveDate: string;
   /** What the bank assigned. ISO date. Null until the bank acknowledges. */
   settlementDate: string | null;
