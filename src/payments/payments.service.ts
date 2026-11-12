@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Payment } from './payment';
 import { PaymentStatus } from './payment-status';
@@ -6,6 +6,7 @@ import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
+import { PaymentCreationValidationError } from './errors/payment-creation-validation.error';
 
 @Injectable()
 export class PaymentsService {
@@ -20,7 +21,9 @@ export class PaymentsService {
    */
   public create(input: CreatePaymentInput): Payment {
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
-      throw new BadRequestException('amountCents must be a positive integer');
+      throw new PaymentCreationValidationError('Payment amount must be a positive integer', {
+        amountCents: input.amountCents,
+      });
     }
     const now = new Date().toISOString();
     const payment: Payment = {

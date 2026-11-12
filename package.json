@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@nestjs/testing": "10.4.15",
+    "@types/express": "^5.0.6",
     "@types/jest": "29.5.14",
     "@types/node": "^22.20.5",
     "@types/supertest": "6.0.2",
