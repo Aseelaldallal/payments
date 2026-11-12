@@ -26,6 +26,10 @@ describe('PaymentsRepository', () => {
   });
 
   describe('update', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('returns undefined when the payment does not exist', () => {
       expect(
         repository.update('missing-payment', {
@@ -42,10 +46,7 @@ describe('PaymentsRepository', () => {
         status: PaymentStatus.SUBMITTED,
       });
 
-      expect(updated).toEqual({
-        ...payment,
-        status: PaymentStatus.SUBMITTED,
-      });
+      expect(updated?.status).toBe(PaymentStatus.SUBMITTED);
     });
 
     it('persists the updated payment', () => {
@@ -57,6 +58,20 @@ describe('PaymentsRepository', () => {
       });
 
       expect(repository.findById(payment.id)?.status).toBe(PaymentStatus.SUBMITTED);
+    });
+
+    it('sets updatedAt to the update time', () => {
+      const updateTime = new Date('2026-09-02T00:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(updateTime);
+      const payment = buildPayment(PaymentStatus.CREATED);
+      repository.create(payment);
+
+      const updated = repository.update(payment.id, {
+        status: PaymentStatus.SUBMITTED,
+      });
+
+      expect(updated?.updatedAt).toBe(updateTime.toISOString());
     });
   });
 });

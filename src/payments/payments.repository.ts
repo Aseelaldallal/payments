@@ -17,12 +17,16 @@ export class PaymentsRepository {
 
   public update(
     id: string,
-    changes: Partial<Omit<Payment, 'id' | 'createdAt'>>,
+    changes: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>>,
   ): Payment | undefined {
     const payment = this.payments.get(id);
     if (!payment) return undefined;
 
-    const updatedPayment = { ...payment, ...changes };
+    const updatedPayment = {
+      ...payment,
+      ...changes,
+      updatedAt: new Date().toISOString(),
+    };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
   }

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Payment, ReceiverAccountType, SecCode } from './payment';
-import { PaymentStatus, ALL_STATUSES } from './payment-status';
+import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 
@@ -49,11 +49,15 @@ export class PaymentsService {
       createdAt: now,
       updatedAt: now,
     };
-    return this.repo.save(payment);
+    return this.repo.create(payment);
   }
 
   public get(id: string): Payment {
-    return this.repo.findById(id);
+    const payment = this.repo.findById(id);
+    if (!payment) {
+      throw new Error(`Payment ${id} not found`);
+    }
+    return payment;
   }
 
   /** Marks a created payment as submitted after its entry is handed to the bank in a file. */
@@ -193,12 +197,18 @@ export class PaymentsService {
   }
 
   /** Persists a status change after the public operation validates the transition. */
-  private setStatus(id: string, status: PaymentStatus, patch: Partial<Payment> = {}): Payment {
-    if (!ALL_STATUSES.includes(status)) {
-      throw new BadRequestException(`Unknown status ${status}`);
+  private setStatus(
+    id: string,
+    status: PaymentStatus,
+    patch: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'status'>> = {},
+  ): Payment {
+    const payment = this.repo.update(id, {
+      ...patch,
+      status,
+    });
+    if (!payment) {
+      throw new Error(`Payment ${id} not found`);
     }
-    const payment = this.repo.findById(id);
-    Object.assign(payment, patch, { status, updatedAt: new Date().toISOString() });
-    return this.repo.save(payment);
+    return payment;
   }
 }
