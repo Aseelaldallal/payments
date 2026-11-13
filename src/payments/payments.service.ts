@@ -6,7 +6,7 @@ import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
-import { PaymentCreationValidationError } from './errors/payment-creation-validation.error';
+import { InvalidPaymentAmountError } from './errors/invalid-payment-amount.error';
 
 @Injectable()
 export class PaymentsService {
@@ -21,9 +21,7 @@ export class PaymentsService {
    */
   public create(input: CreatePaymentInput): Payment {
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
-      throw new PaymentCreationValidationError('Payment amount must be a positive integer', {
-        amountCents: input.amountCents,
-      });
+      throw new InvalidPaymentAmountError(input.amountCents);
     }
     const now = new Date().toISOString();
     const payment: Payment = {

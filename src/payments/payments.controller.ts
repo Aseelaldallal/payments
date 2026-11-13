@@ -11,14 +11,14 @@ import {
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ReversePaymentDto } from './dto/reverse-payment.dto';
-import { PaymentCreationValidationFilter } from './filters/payment-creation-validation.filter';
+import { InvalidPaymentAmountFilter } from './filters/invalid-payment-amount.filter';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
   @Post()
-  @UseFilters(PaymentCreationValidationFilter)
+  @UseFilters(InvalidPaymentAmountFilter)
   create(@Body() body: CreatePaymentDto) {
     return this.payments.create(body);
   }
