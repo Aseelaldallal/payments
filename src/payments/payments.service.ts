@@ -7,6 +7,7 @@ import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
 import { InvalidPaymentAmountError } from './errors/invalid-payment-amount.error';
+import { PaymentNotFoundError } from './errors/payment-not-found.error';
 
 @Injectable()
 export class PaymentsService {
@@ -47,7 +48,7 @@ export class PaymentsService {
   public get(id: string): Payment {
     const payment = this.repo.findById(id);
     if (!payment) {
-      throw new Error(`Payment ${id} not found`);
+      throw new PaymentNotFoundError(id);
     }
     return payment;
   }
@@ -196,7 +197,7 @@ export class PaymentsService {
       status,
     });
     if (!payment) {
-      throw new Error(`Payment ${id} not found`);
+      throw new PaymentNotFoundError(id);
     }
     return payment;
   }

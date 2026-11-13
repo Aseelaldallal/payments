@@ -12,6 +12,7 @@ import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ReversePaymentDto } from './dto/reverse-payment.dto';
 import { InvalidPaymentAmountFilter } from './filters/invalid-payment-amount.filter';
+import { PaymentNotFoundFilter } from './filters/payment-not-found.filter';
 
 @Controller('payments')
 export class PaymentsController {
@@ -24,6 +25,7 @@ export class PaymentsController {
   }
 
   @Get(':id')
+  @UseFilters(PaymentNotFoundFilter)
   get(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.payments.get(id);
   }
