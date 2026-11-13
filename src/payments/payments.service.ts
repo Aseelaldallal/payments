@@ -5,7 +5,6 @@ import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween } from '../shared/banking-calendar';
 import { calendarDaysBetween, isValidIsoDate } from '../shared/iso-date';
-import { InvariantViolationError } from '../shared/errors/invariant-violation.error';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
 import { PaymentError, PaymentErrorCode } from './errors/payment.error';
@@ -99,26 +98,20 @@ export class PaymentsService {
         to: PaymentStatus.REVERSED,
       });
     }
-    if (!payment.settlementDate || !isValidIsoDate(payment.settlementDate)) {
-      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_VALID_SETTLEMENT_DATE', {
-        paymentId: id,
-        status: payment.status,
-        settlementDate: payment.settlementDate,
-      });
-    }
+    const settlementDate = payment.settlementDate!;
     const reversalDate = new Date().toISOString().slice(0, 10);
-    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, reversalDate);
+    const bankingDaysDelta = bankingDaysBetween(settlementDate, reversalDate);
     if (bankingDaysDelta < 0) {
       throw new PaymentError(PaymentErrorCode.ReversalDatePrecedesSettlement, {
         paymentId: id,
-        settlementDate: payment.settlementDate,
+        settlementDate,
         reversalDate,
       });
     }
     if (bankingDaysDelta > 5) {
       throw new PaymentError(PaymentErrorCode.ReversalWindowExpired, {
         paymentId: id,
-        settlementDate: payment.settlementDate,
+        settlementDate,
         reversalDate,
         bankingDaysElapsed: bankingDaysDelta,
       });
@@ -145,15 +138,9 @@ export class PaymentsService {
         to: PaymentStatus.RETURNED,
       });
     }
-    if (!payment.settlementDate || !isValidIsoDate(payment.settlementDate)) {
-      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_VALID_SETTLEMENT_DATE', {
-        paymentId: id,
-        status: payment.status,
-        settlementDate: payment.settlementDate,
-      });
-    }
-    const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, returnDate);
-    const calendarDaysDelta = calendarDaysBetween(payment.settlementDate, returnDate);
+    const settlementDate = payment.settlementDate!;
+    const bankingDaysDelta = bankingDaysBetween(settlementDate, returnDate);
+    const calendarDaysDelta = calendarDaysBetween(settlementDate, returnDate);
     const notAuthorizedFamily = ['R05', 'R07', 'R10', 'R11'];
     const hasExtendedWindow =
       payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
@@ -161,7 +148,7 @@ export class PaymentsService {
       throw new PaymentError(PaymentErrorCode.ReturnDatePrecedesSettlement, {
         paymentId: id,
         returnCode,
-        settlementDate: payment.settlementDate,
+        settlementDate,
         returnDate,
         receiverAccountType: payment.receiverAccountType,
       });
@@ -170,7 +157,7 @@ export class PaymentsService {
       throw new PaymentError(PaymentErrorCode.ExtendedReturnWindowExpired, {
         paymentId: id,
         returnCode,
-        settlementDate: payment.settlementDate,
+        settlementDate,
         returnDate,
         receiverAccountType: payment.receiverAccountType,
         calendarDaysElapsed: calendarDaysDelta,
@@ -180,7 +167,7 @@ export class PaymentsService {
       throw new PaymentError(PaymentErrorCode.StandardReturnWindowExpired, {
         paymentId: id,
         returnCode,
-        settlementDate: payment.settlementDate,
+        settlementDate,
         returnDate,
         receiverAccountType: payment.receiverAccountType,
         bankingDaysElapsed: bankingDaysDelta,
