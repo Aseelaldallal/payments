@@ -4,10 +4,10 @@ import { Payment } from './payment';
 import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween, calendarDaysBetween } from '../shared/calendar';
+import { InvariantViolationError } from '../shared/errors/invariant-violation.error';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
-import { InvalidPaymentAmountError } from './errors/invalid-payment-amount.error';
-import { PaymentNotFoundError } from './errors/payment-not-found.error';
+import { PaymentError, PaymentErrorCode } from './errors/payment.error';
 
 @Injectable()
 export class PaymentsService {
@@ -22,7 +22,9 @@ export class PaymentsService {
    */
   public create(input: CreatePaymentInput): Payment {
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
-      throw new InvalidPaymentAmountError(input.amountCents);
+      throw new PaymentError(PaymentErrorCode.InvalidPaymentAmount, {
+        amountCents: input.amountCents,
+      });
     }
     const now = new Date().toISOString();
     const payment: Payment = {
@@ -48,7 +50,7 @@ export class PaymentsService {
   public get(id: string): Payment {
     const payment = this.repo.findById(id);
     if (!payment) {
-      throw new PaymentNotFoundError(id);
+      throw new PaymentError(PaymentErrorCode.PaymentNotFound, { paymentId: id });
     }
     return payment;
   }
@@ -57,7 +59,11 @@ export class PaymentsService {
   public submit(id: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.CREATED) {
-      throw new Error(`Illegal transition from status ${payment.status} to SUBMITTED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.SUBMITTED,
+      });
     }
     return this.setStatus(id, PaymentStatus.SUBMITTED);
   }
@@ -66,7 +72,11 @@ export class PaymentsService {
   public cancel(id: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.CREATED) {
-      throw new Error(`Illegal transition from status ${payment.status} to CANCELLED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.CANCELLED,
+      });
     }
     return this.setStatus(id, PaymentStatus.CANCELLED);
   }
@@ -81,18 +91,34 @@ export class PaymentsService {
   public reverse(id: string, reason: ReversalReason): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
-      throw new Error(`Illegal transition from status ${payment.status} to REVERSED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.REVERSED,
+      });
     }
     if (!payment.settlementDate) {
-      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_SETTLEMENT_DATE', {
+        paymentId: id,
+        status: payment.status,
+      });
     }
     const reversalDate = new Date().toISOString().slice(0, 10);
     const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, reversalDate);
     if (bankingDaysDelta < 0) {
-      throw new Error(`Reversal date precedes settlement for payment ${id}`);
+      throw new PaymentError(PaymentErrorCode.ReversalDatePrecedesSettlement, {
+        paymentId: id,
+        settlementDate: payment.settlementDate,
+        reversalDate,
+      });
     }
     if (bankingDaysDelta > 5) {
-      throw new Error(`Reversal must occur within 5 banking days of settlement`);
+      throw new PaymentError(PaymentErrorCode.ReversalWindowExpired, {
+        paymentId: id,
+        settlementDate: payment.settlementDate,
+        reversalDate,
+        bankingDaysElapsed: bankingDaysDelta,
+      });
     }
     return this.setStatus(id, PaymentStatus.REVERSED, {
       reversalReason: reason,
@@ -109,10 +135,17 @@ export class PaymentsService {
   public return(id: string, returnCode: string, returnDate: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
-      throw new Error(`Illegal transition from status ${payment.status} to RETURNED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.RETURNED,
+      });
     }
     if (!payment.settlementDate) {
-      throw new Error(`Settlement date is not set on a settled payment ${id}`);
+      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_SETTLEMENT_DATE', {
+        paymentId: id,
+        status: payment.status,
+      });
     }
     const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, returnDate);
     const calendarDaysDelta = calendarDaysBetween(payment.settlementDate, returnDate);
@@ -120,13 +153,33 @@ export class PaymentsService {
     const hasExtendedWindow =
       payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
     if (calendarDaysDelta < 0) {
-      throw new Error(`Return date precedes settlement for payment ${id}`);
+      throw new PaymentError(PaymentErrorCode.ReturnDatePrecedesSettlement, {
+        paymentId: id,
+        returnCode,
+        settlementDate: payment.settlementDate,
+        returnDate,
+        receiverAccountType: payment.receiverAccountType,
+      });
     }
     if (hasExtendedWindow && calendarDaysDelta > 60) {
-      throw new Error(`Return date window has passed for payment ${id}`);
+      throw new PaymentError(PaymentErrorCode.ExtendedReturnWindowExpired, {
+        paymentId: id,
+        returnCode,
+        settlementDate: payment.settlementDate,
+        returnDate,
+        receiverAccountType: payment.receiverAccountType,
+        calendarDaysElapsed: calendarDaysDelta,
+      });
     }
     if (!hasExtendedWindow && bankingDaysDelta > 2) {
-      throw new Error(`Return date window has passed for payment ${id}`);
+      throw new PaymentError(PaymentErrorCode.StandardReturnWindowExpired, {
+        paymentId: id,
+        returnCode,
+        settlementDate: payment.settlementDate,
+        returnDate,
+        receiverAccountType: payment.receiverAccountType,
+        bankingDaysElapsed: bankingDaysDelta,
+      });
     }
     return this.setStatus(id, PaymentStatus.RETURNED, {
       returnCode,
@@ -142,7 +195,11 @@ export class PaymentsService {
   public acknowledge(id: string, settlementDate: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SUBMITTED) {
-      throw new Error(`Illegal transition from status ${payment.status} to PROCESSING`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.PROCESSING,
+      });
     }
     return this.setStatus(id, PaymentStatus.PROCESSING, {
       settlementDate,
@@ -157,10 +214,14 @@ export class PaymentsService {
   public settle(id: string, settlementDate: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.PROCESSING) {
-      throw new Error(`Illegal transition from status ${payment.status} to SETTLED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.SETTLED,
+      });
     }
     if (!settlementDate) {
-      throw new Error(`Settlement date is required to settle payment ${id}`);
+      throw new PaymentError(PaymentErrorCode.SettlementDateRequired, { paymentId: id });
     }
     return this.setStatus(id, PaymentStatus.SETTLED, {
       settlementDate,
@@ -179,7 +240,11 @@ export class PaymentsService {
       payment.status !== PaymentStatus.SUBMITTED &&
       payment.status !== PaymentStatus.PROCESSING
     ) {
-      throw new Error(`Illegal transition from status ${payment.status} to FAILED`);
+      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+        paymentId: id,
+        from: payment.status,
+        to: PaymentStatus.FAILED,
+      });
     }
     return this.setStatus(id, PaymentStatus.FAILED, {
       failureReason,
@@ -197,7 +262,7 @@ export class PaymentsService {
       status,
     });
     if (!payment) {
-      throw new PaymentNotFoundError(id);
+      throw new PaymentError(PaymentErrorCode.PaymentNotFound, { paymentId: id });
     }
     return payment;
   }

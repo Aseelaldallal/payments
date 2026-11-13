@@ -11,21 +11,19 @@ import {
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ReversePaymentDto } from './dto/reverse-payment.dto';
-import { InvalidPaymentAmountFilter } from './filters/invalid-payment-amount.filter';
-import { PaymentNotFoundFilter } from './filters/payment-not-found.filter';
+import { PaymentErrorFilter } from './filters/payment-error.filter';
 
+@UseFilters(PaymentErrorFilter)
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
   @Post()
-  @UseFilters(InvalidPaymentAmountFilter)
   create(@Body() body: CreatePaymentDto) {
     return this.payments.create(body);
   }
 
   @Get(':id')
-  @UseFilters(PaymentNotFoundFilter)
   get(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.payments.get(id);
   }
