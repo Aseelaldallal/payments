@@ -51,10 +51,9 @@ const PAYMENT_ERROR_RESPONSES: Record<PaymentErrorCode, PaymentErrorResponse> = 
     message: 'The return cannot be applied.',
     rule: 'Return must occur within 60 calendar days of settlement.',
   },
-  [PaymentErrorCode.SettlementDateRequired]: {
-    statusCode: HttpStatus.CONFLICT,
-    message: 'The payment cannot be settled.',
-    rule: 'Settlement date is required.',
+  [PaymentErrorCode.InvalidDate]: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    message: 'Date must be a valid YYYY-MM-DD calendar date.',
   },
 };
 

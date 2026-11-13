@@ -4,7 +4,7 @@ import { Payment } from './payment';
 import { PaymentStatus } from './payment-status';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween } from '../shared/banking-calendar';
-import { calendarDaysBetween } from '../shared/iso-date';
+import { calendarDaysBetween, isValidIsoDate } from '../shared/iso-date';
 import { InvariantViolationError } from '../shared/errors/invariant-violation.error';
 import { CreatePaymentInput } from './inputs/create-payment.input';
 import { ReversalReason } from './reversal-reason';
@@ -22,6 +22,7 @@ export class PaymentsService {
    * @returns The newly created payment.
    */
   public create(input: CreatePaymentInput): Payment {
+    this.assertValidDate('effectiveDate', input.effectiveDate);
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
       throw new PaymentError(PaymentErrorCode.InvalidPaymentAmount, {
         amountCents: input.amountCents,
@@ -98,10 +99,11 @@ export class PaymentsService {
         to: PaymentStatus.REVERSED,
       });
     }
-    if (!payment.settlementDate) {
-      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_SETTLEMENT_DATE', {
+    if (!payment.settlementDate || !isValidIsoDate(payment.settlementDate)) {
+      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_VALID_SETTLEMENT_DATE', {
         paymentId: id,
         status: payment.status,
+        settlementDate: payment.settlementDate,
       });
     }
     const reversalDate = new Date().toISOString().slice(0, 10);
@@ -134,6 +136,7 @@ export class PaymentsService {
    * @param returnDate The settlement date of the return entry, formatted as YYYY-MM-DD.
    */
   public return(id: string, returnCode: string, returnDate: string): Payment {
+    this.assertValidDate('returnDate', returnDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
       throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
@@ -142,10 +145,11 @@ export class PaymentsService {
         to: PaymentStatus.RETURNED,
       });
     }
-    if (!payment.settlementDate) {
-      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_SETTLEMENT_DATE', {
+    if (!payment.settlementDate || !isValidIsoDate(payment.settlementDate)) {
+      throw new InvariantViolationError('SETTLED_PAYMENT_REQUIRES_VALID_SETTLEMENT_DATE', {
         paymentId: id,
         status: payment.status,
+        settlementDate: payment.settlementDate,
       });
     }
     const bankingDaysDelta = bankingDaysBetween(payment.settlementDate, returnDate);
@@ -194,6 +198,7 @@ export class PaymentsService {
    * @param settlementDate The settlement date assigned by the bank, formatted as YYYY-MM-DD.
    */
   public acknowledge(id: string, settlementDate: string): Payment {
+    this.assertValidDate('settlementDate', settlementDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SUBMITTED) {
       throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
@@ -213,6 +218,7 @@ export class PaymentsService {
    * @param settlementDate The bank-reported settlement date, formatted as YYYY-MM-DD.
    */
   public settle(id: string, settlementDate: string): Payment {
+    this.assertValidDate('settlementDate', settlementDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.PROCESSING) {
       throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
@@ -220,9 +226,6 @@ export class PaymentsService {
         from: payment.status,
         to: PaymentStatus.SETTLED,
       });
-    }
-    if (!settlementDate) {
-      throw new PaymentError(PaymentErrorCode.SettlementDateRequired, { paymentId: id });
     }
     return this.setStatus(id, PaymentStatus.SETTLED, {
       settlementDate,
@@ -266,5 +269,17 @@ export class PaymentsService {
       throw new PaymentError(PaymentErrorCode.PaymentNotFound, { paymentId: id });
     }
     return payment;
+  }
+
+  private assertValidDate(
+    field: 'effectiveDate' | 'settlementDate' | 'returnDate',
+    value: string,
+  ): void {
+    if (!isValidIsoDate(value)) {
+      throw new PaymentError(PaymentErrorCode.InvalidDate, {
+        field,
+        value,
+      });
+    }
   }
 }

@@ -7,7 +7,7 @@ export const PaymentErrorCode = {
   ReturnDatePrecedesSettlement: 'RETURN_DATE_PRECEDES_SETTLEMENT',
   StandardReturnWindowExpired: 'STANDARD_RETURN_WINDOW_EXPIRED',
   ExtendedReturnWindowExpired: 'EXTENDED_RETURN_WINDOW_EXPIRED',
-  SettlementDateRequired: 'SETTLEMENT_DATE_REQUIRED',
+  InvalidDate: 'INVALID_DATE',
 } as const;
 
 export type PaymentErrorCode = (typeof PaymentErrorCode)[keyof typeof PaymentErrorCode];
