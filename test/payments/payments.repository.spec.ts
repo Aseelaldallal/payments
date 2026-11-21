@@ -1,5 +1,5 @@
-import { Payment } from '../../src/payments/payment';
-import { PaymentStatus } from '../../src/payments/payment-status';
+import { Payment } from '../../src/payments/domain/payment.interface';
+import { PaymentStatus } from '../../src/payments/domain/payment-status.enum';
 import { PaymentsRepository } from '../../src/payments/payments.repository';
 
 describe('PaymentsRepository', () => {

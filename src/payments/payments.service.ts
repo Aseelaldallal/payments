@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Payment } from './payment';
-import { PaymentStatus } from './payment-status';
+import { Payment } from './domain/payment.interface';
+import { PaymentStatus } from './domain/payment-status.enum';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween } from '../shared/banking-calendar';
 import { calendarDaysBetween, isValidIsoDate } from '../shared/iso-date';

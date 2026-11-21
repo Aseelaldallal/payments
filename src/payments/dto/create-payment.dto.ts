@@ -1,5 +1,5 @@
 import { IsDateString, IsIn, IsInt, IsNotEmpty, IsString, Matches, Min } from 'class-validator';
-import { ReceiverAccountType, SecCode } from '../payment';
+import { ReceiverAccountType, SecCode } from '../domain/payment.interface';
 
 export class CreatePaymentDto {
   /** Identifier of the platform partner requesting the ACH pull. */

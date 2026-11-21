@@ -1,4 +1,4 @@
-import { ReceiverAccountType, SecCode } from '../payment';
+import { ReceiverAccountType, SecCode } from '../domain/payment.interface';
 
 /**
  * Application-layer values required to create a payment.

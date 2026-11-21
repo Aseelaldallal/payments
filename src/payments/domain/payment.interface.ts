@@ -1,4 +1,4 @@
-import { PaymentStatus } from './payment-status';
+import { PaymentStatus } from './payment-status.enum';
 
 export type ReceiverAccountType = 'consumer' | 'business';
 export type SecCode = 'PPD' | 'CCD' | 'WEB' | 'TEL';

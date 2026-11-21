@@ -3,10 +3,11 @@
 ## PaymentsService
 
 - [ ] Implement `GET /payments/:id/history`.
+- [ ] Add comprehensive unit tests for `PaymentsService`, repository history behavior, and rejected transitions.
 - [ ] Implement scheduled `SETTLED -> FINAL` processing.
 - [ ] Explore extracting lifecycle checks into a state-transition component.
 - [ ] Explore extracting NACHA return/reversal rules from `PaymentsService`.
-- [ ] Review and clean up the payments feature's file and folder organization.
+- [x] Review and clean up the payments feature's file and folder organization.
 
 ## BankService
 
