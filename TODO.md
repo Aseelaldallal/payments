@@ -26,7 +26,7 @@
 - [x] Translate coded payment failures into human-readable report-line errors.
 - [x] Ensure unexpected/internal errors do not expose their messages in report results.
 - [ ] Finish strict validation of bank-report dates.
-- [ ] Review top-level bank-report DTO/runtime validation and validation ownership.
+- [x] Validate the top-level bank-report envelope while preserving per-line processing.
 - [ ] Decide how to handle NOC lines and update account data.
 - [x] Move bank report result interfaces out of `bank.service.ts`.
 

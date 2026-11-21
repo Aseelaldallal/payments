@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, Post, SerializeOptions } from '@nestjs/common';
-import { BankReport } from './bank-report';
 import { BankService } from './bank.service';
+import { BankReportRequestDto } from './dto/request/bank-report.dto';
 import { BankReportResponseDto } from './dto/response/bank-report.dto';
 
 @Controller('bank')
@@ -11,7 +11,7 @@ export class BankController {
   @Post('reports')
   @HttpCode(200)
   @SerializeOptions({ type: BankReportResponseDto })
-  applyReport(@Body() report: BankReport) {
+  applyReport(@Body() report: BankReportRequestDto) {
     return {
       results: this.bank.applyReport(report),
     };
