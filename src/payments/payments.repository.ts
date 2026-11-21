@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Payment } from './domain/payment.interface';
+import { PaymentEvent } from './domain/payment-event.enum';
 import { PaymentStatus } from './domain/payment-status.enum';
+import { PaymentRecord } from './persistence/payment-record.interface';
 import { PaymentStatusHistoryRecord } from './persistence/payment-status-history-record.interface';
 
 /**
@@ -9,7 +10,7 @@ import { PaymentStatusHistoryRecord } from './persistence/payment-status-history
  */
 @Injectable()
 export class PaymentsRepository {
-  private readonly payments = new Map<string, Payment>();
+  private readonly payments = new Map<string, PaymentRecord>();
   private readonly history = new Map<string, PaymentStatusHistoryRecord[]>();
 
   /**
@@ -20,7 +21,7 @@ export class PaymentsRepository {
    * @param event The event that created the payment.
    * @returns The stored payment.
    */
-  public create({ payment, event }: { payment: Payment; event: string }): Payment {
+  public create({ payment, event }: { payment: PaymentRecord; event: PaymentEvent }): PaymentRecord {
     const historyRecord = {
       paymentId: payment.id,
       sequence: 1,
@@ -40,7 +41,7 @@ export class PaymentsRepository {
    * @param id The payment identifier.
    * @returns The payment, or undefined when it does not exist.
    */
-  public findById(id: string): Payment | undefined {
+  public findById(id: string): PaymentRecord | undefined {
     return this.payments.get(id);
   }
 
@@ -74,10 +75,10 @@ export class PaymentsRepository {
   }: {
     paymentId: string;
     to: PaymentStatus;
-    event: string;
+    event: PaymentEvent;
     reason?: string | null;
-    changes?: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
-  }): Payment | undefined {
+    changes?: Partial<Omit<PaymentRecord, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
+  }): PaymentRecord | undefined {
     const payment = this.payments.get(paymentId);
     if (!payment) return undefined;
 

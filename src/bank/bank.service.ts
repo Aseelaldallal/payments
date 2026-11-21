@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PaymentEvent } from '../payments/domain/payment-event.enum';
 import { PaymentsService } from '../payments/payments.service';
 import { BankReport, BankReportLine } from './bank-report';
 import { BankReportLineValidationError } from './bank-report-line-validation.error';
@@ -80,7 +81,7 @@ export class BankService {
         this.assertRequiredString(line.reason, 'reason', line.type);
         this.payments.fail({
           paymentId: line.paymentId,
-          failureCause: 'bank_rejected',
+          failureCause: PaymentEvent.BANK_REJECTED,
           failureReason: line.reason,
         });
         return;
@@ -88,7 +89,7 @@ export class BankService {
         this.assertRequiredString(line.reason, 'reason', line.type);
         this.payments.fail({
           paymentId: line.paymentId,
-          failureCause: 'operator_rejected',
+          failureCause: PaymentEvent.OPERATOR_REJECTED,
           failureReason: line.reason,
         });
         return;

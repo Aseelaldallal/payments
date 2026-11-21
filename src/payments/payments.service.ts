@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { PaymentHistoryEntry } from './domain/payment-history-entry.interface';
-import { Payment } from './domain/payment.interface';
+import { PaymentEvent } from './domain/payment-event.enum';
 import { PaymentStatus } from './domain/payment-status.enum';
 import { PaymentsRepository } from './payments.repository';
 import { bankingDaysBetween } from '../shared/banking-calendar';
 import { calendarDaysBetween, isValidIsoDate } from '../shared/iso-date';
-import { CreatePaymentInput } from './inputs/create-payment.input';
-import { ReversalReason } from './reversal-reason';
+import { ReversalReason } from './domain/reversal-reason';
 import { PaymentError, PaymentErrorCode } from './errors/payment.error';
+import { CreatePaymentInput, Payment, PaymentHistoryEntry } from './types/payments.service.types';
 
 @Injectable()
 export class PaymentsService {
@@ -48,7 +47,7 @@ export class PaymentsService {
     };
     return this.repo.create({
       payment,
-      event: 'pull_requested',
+      event: PaymentEvent.PULL_REQUESTED,
     });
   }
 
@@ -73,7 +72,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.SUBMITTED,
-      event: 'sent_to_bank',
+      event: PaymentEvent.SENT_TO_BANK,
     });
   }
 
@@ -90,7 +89,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.CANCELLED,
-      event: 'cancel_requested',
+      event: PaymentEvent.CANCEL_REQUESTED,
     });
   }
 
@@ -131,7 +130,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.REVERSED,
-      event: 'reversal_sent',
+      event: PaymentEvent.REVERSAL_SENT,
       reason: reason,
       patch: {
         reversalReason: reason,
@@ -193,7 +192,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.RETURNED,
-      event: 'return_received',
+      event: PaymentEvent.RETURN_RECEIVED,
       reason: returnCode,
       patch: {
         returnCode,
@@ -220,7 +219,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.PROCESSING,
-      event: 'bank_acknowledged',
+      event: PaymentEvent.BANK_ACKNOWLEDGED,
       patch: {
         settlementDate,
       },
@@ -245,7 +244,7 @@ export class PaymentsService {
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.SETTLED,
-      event: 'settlement_reported',
+      event: PaymentEvent.SETTLEMENT_REPORTED,
       patch: {
         settlementDate,
       },
@@ -263,7 +262,7 @@ export class PaymentsService {
     failureReason,
   }: {
     paymentId: string;
-    failureCause: string;
+    failureCause: PaymentEvent;
     failureReason: string;
   }): Payment {
     const payment = this.get(paymentId);
@@ -315,7 +314,7 @@ export class PaymentsService {
   }: {
     paymentId: string;
     status: PaymentStatus;
-    event: string;
+    event: PaymentEvent;
     reason?: string | null;
     patch?: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
   }): Payment {

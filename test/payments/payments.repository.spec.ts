@@ -1,6 +1,6 @@
-import { Payment } from '../../src/payments/domain/payment.interface';
 import { PaymentStatus } from '../../src/payments/domain/payment-status.enum';
 import { PaymentsRepository } from '../../src/payments/payments.repository';
+import { Payment } from '../../src/payments/types/payments.service.types';
 
 describe('PaymentsRepository', () => {
   let repository: PaymentsRepository;

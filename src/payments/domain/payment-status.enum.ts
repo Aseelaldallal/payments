@@ -8,5 +8,3 @@ export enum PaymentStatus {
   CANCELLED = 'CANCELLED',
   REVERSED = 'REVERSED',
 }
-
-export const ALL_STATUSES: PaymentStatus[] = Object.values(PaymentStatus);
