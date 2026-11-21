@@ -77,9 +77,20 @@ export class BankService {
         this.payments.acknowledge(line.paymentId, line.settlementDate);
         return;
       case 'REJECTED':
+        this.assertRequiredString(line.reason, 'reason', line.type);
+        this.payments.fail({
+          paymentId: line.paymentId,
+          failureCause: 'bank_rejected',
+          failureReason: line.reason,
+        });
+        return;
       case 'OPERATOR_REJECTED':
         this.assertRequiredString(line.reason, 'reason', line.type);
-        this.payments.fail(line.paymentId, line.reason);
+        this.payments.fail({
+          paymentId: line.paymentId,
+          failureCause: 'operator_rejected',
+          failureReason: line.reason,
+        });
         return;
       case 'SETTLED':
         this.assertRequiredString(line.settlementDate, 'settlementDate', line.type);
@@ -95,9 +106,7 @@ export class BankService {
         // update the partner's account data. Nobody does.
         return;
       default:
-        throw new BankReportLineValidationError(
-          `Malformed bank report line: unknown type ${String(lineType)}`,
-        );
+        throw new BankReportLineValidationError(`Malformed bank report line: unknown type ${String(lineType)}`);
     }
   }
 

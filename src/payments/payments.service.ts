@@ -45,7 +45,10 @@ export class PaymentsService {
       createdAt: now,
       updatedAt: now,
     };
-    return this.repo.create(payment);
+    return this.repo.create({
+      payment,
+      event: 'pull_requested',
+    });
   }
 
   public get(id: string): Payment {
@@ -66,7 +69,11 @@ export class PaymentsService {
         to: PaymentStatus.SUBMITTED,
       });
     }
-    return this.setStatus(id, PaymentStatus.SUBMITTED);
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.SUBMITTED,
+      event: 'sent_to_bank',
+    });
   }
 
   /** Cancels a created payment before its entry is handed to the bank. */
@@ -79,7 +86,11 @@ export class PaymentsService {
         to: PaymentStatus.CANCELLED,
       });
     }
-    return this.setStatus(id, PaymentStatus.CANCELLED);
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.CANCELLED,
+      event: 'cancel_requested',
+    });
   }
 
   /**
@@ -116,9 +127,15 @@ export class PaymentsService {
         bankingDaysElapsed: bankingDaysDelta,
       });
     }
-    return this.setStatus(id, PaymentStatus.REVERSED, {
-      reversalReason: reason,
-      reversalDate,
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.REVERSED,
+      event: 'reversal_sent',
+      reason: reason,
+      patch: {
+        reversalReason: reason,
+        reversalDate,
+      },
     });
   }
 
@@ -142,8 +159,7 @@ export class PaymentsService {
     const bankingDaysDelta = bankingDaysBetween(settlementDate, returnDate);
     const calendarDaysDelta = calendarDaysBetween(settlementDate, returnDate);
     const notAuthorizedFamily = ['R05', 'R07', 'R10', 'R11'];
-    const hasExtendedWindow =
-      payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
+    const hasExtendedWindow = payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
     if (calendarDaysDelta < 0) {
       throw new PaymentError(PaymentErrorCode.ReturnDatePrecedesSettlement, {
         paymentId: id,
@@ -173,9 +189,15 @@ export class PaymentsService {
         bankingDaysElapsed: bankingDaysDelta,
       });
     }
-    return this.setStatus(id, PaymentStatus.RETURNED, {
-      returnCode,
-      returnDate,
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.RETURNED,
+      event: 'return_received',
+      reason: returnCode,
+      patch: {
+        returnCode,
+        returnDate,
+      },
     });
   }
 
@@ -194,8 +216,13 @@ export class PaymentsService {
         to: PaymentStatus.PROCESSING,
       });
     }
-    return this.setStatus(id, PaymentStatus.PROCESSING, {
-      settlementDate,
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.PROCESSING,
+      event: 'bank_acknowledged',
+      patch: {
+        settlementDate,
+      },
     });
   }
 
@@ -214,8 +241,13 @@ export class PaymentsService {
         to: PaymentStatus.SETTLED,
       });
     }
-    return this.setStatus(id, PaymentStatus.SETTLED, {
-      settlementDate,
+    return this.setStatus({
+      paymentId: id,
+      status: PaymentStatus.SETTLED,
+      event: 'settlement_reported',
+      patch: {
+        settlementDate,
+      },
     });
   }
 
@@ -224,44 +256,65 @@ export class PaymentsService {
    *
    * @param failureReason The reason the payment failed.
    */
-  public fail(id: string, failureReason: string): Payment {
-    const payment = this.get(id);
+  public fail({
+    paymentId,
+    failureCause,
+    failureReason,
+  }: {
+    paymentId: string;
+    failureCause: string;
+    failureReason: string;
+  }): Payment {
+    const payment = this.get(paymentId);
     if (
       payment.status !== PaymentStatus.CREATED &&
       payment.status !== PaymentStatus.SUBMITTED &&
       payment.status !== PaymentStatus.PROCESSING
     ) {
       throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
-        paymentId: id,
+        paymentId,
         from: payment.status,
         to: PaymentStatus.FAILED,
       });
     }
-    return this.setStatus(id, PaymentStatus.FAILED, {
-      failureReason,
+    return this.setStatus({
+      paymentId,
+      status: PaymentStatus.FAILED,
+      event: failureCause,
+      reason: failureReason,
     });
   }
 
   /** Persists a status change after the public operation validates the transition. */
-  private setStatus(
-    id: string,
-    status: PaymentStatus,
-    patch: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'status'>> = {},
-  ): Payment {
-    const payment = this.repo.update(id, {
-      ...patch,
-      status,
+  private setStatus({
+    paymentId,
+    status,
+    event,
+    reason = null,
+    patch = {},
+  }: {
+    paymentId: string;
+    status: PaymentStatus;
+    event: string;
+    reason?: string | null;
+    patch?: Partial<Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
+  }): Payment {
+    const updatedPayment = this.repo.persistTransition({
+      paymentId,
+      to: status,
+      event,
+      reason,
+      changes: patch,
     });
-    if (!payment) {
-      throw new PaymentError(PaymentErrorCode.PaymentNotFound, { paymentId: id });
+    if (!updatedPayment) {
+      throw new PaymentError(PaymentErrorCode.PaymentNotFound, {
+        paymentId,
+      });
     }
-    return payment;
+    return updatedPayment;
   }
 
-  private assertValidDate(
-    field: 'effectiveDate' | 'settlementDate' | 'returnDate',
-    value: string,
-  ): void {
+  private assertValidDate(field: 'effectiveDate' | 'settlementDate' | 'returnDate', value: string): void {
     if (!isValidIsoDate(value)) {
       throw new PaymentError(PaymentErrorCode.InvalidDate, {
         field,
