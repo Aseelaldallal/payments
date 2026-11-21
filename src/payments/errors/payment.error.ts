@@ -12,6 +12,20 @@ export const PaymentErrorCode = {
 
 export type PaymentErrorCode = (typeof PaymentErrorCode)[keyof typeof PaymentErrorCode];
 
+/** Safe descriptions shared by every adapter that exposes payment failures. */
+const PAYMENT_ERROR_MESSAGES: Record<PaymentErrorCode, string> = {
+  [PaymentErrorCode.InvalidPaymentAmount]: 'Payment amount must be a positive integer',
+  [PaymentErrorCode.PaymentNotFound]: 'Payment not found',
+  [PaymentErrorCode.IllegalPaymentTransition]:
+    'The payment cannot move to the requested status from its current status.',
+  [PaymentErrorCode.ReversalDatePrecedesSettlement]: 'Reversal date cannot precede settlement date.',
+  [PaymentErrorCode.ReversalWindowExpired]: 'Reversal must occur within 5 banking days of settlement.',
+  [PaymentErrorCode.ReturnDatePrecedesSettlement]: 'Return date cannot precede settlement date.',
+  [PaymentErrorCode.StandardReturnWindowExpired]: 'Return must occur within 2 banking days of settlement.',
+  [PaymentErrorCode.ExtendedReturnWindowExpired]: 'Return must occur within 60 calendar days of settlement.',
+  [PaymentErrorCode.InvalidDate]: 'Date must be a valid YYYY-MM-DD calendar date.',
+};
+
 type PaymentErrorMetadata = Readonly<Record<string, string | number | boolean | null>>;
 
 export class PaymentError extends Error {
@@ -19,7 +33,7 @@ export class PaymentError extends Error {
     public readonly code: PaymentErrorCode,
     public readonly metadata: PaymentErrorMetadata,
   ) {
-    super(code);
+    super(PAYMENT_ERROR_MESSAGES[code]);
     this.name = 'PaymentError';
   }
 }
