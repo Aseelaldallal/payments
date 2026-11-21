@@ -300,7 +300,7 @@ export class PaymentsService {
       to: record.status,
       event: record.event,
       reason: record.reason,
-      at: record.createdAt,
+      recordedAt: record.createdAt,
     }));
   }
 

@@ -25,3 +25,21 @@ Organize by feature. Each feature is a folder under `src/`.
 ### Outside features
 
 - `src/shared/`: Helpers that belong to no single feature.
+
+## HTTP success responses
+
+| Response | Shape |
+|---|---|
+| Single resource | The object itself |
+| Collection | An object containing a named array |
+| Batch operation | An object containing a named `results` array |
+
+No generic success envelope.
+
+Applied:
+
+| Endpoint | Returns |
+|---|---|
+| Payment endpoints | `{ "id": "...", "status": "SETTLED", ... }` |
+| `GET /payments/:id/history` | `{ "entries": [...] }` |
+| `POST /bank/reports` | `{ "results": [...] }` |

@@ -17,7 +17,7 @@ platform originates. This service is the platform's payment service.
 | POST /payments/:id/reverse         | Body `{ reason }`. `reason` is one of duplicate, wrong_amount, wrong_account, wrong_date. The reversal happens now. 200 or 409                                                                     |
 | PATCH /payments/:id/status         | Either remove it (404) or make it refuse illegal moves (409). It must never bypass the machine                                                                                                     |
 | POST /bank/reports                 | Always 200. Body `{ results: [{ paymentId, type, applied, rule? }] }`, one per line, in order. A line that cannot be applied has `applied: false` and a `rule` string; the other lines still apply |
-| GET /payments/:id/history          | 200, array oldest first: `{ from, to, event, reason, at }`. First entry has `from: null`, `to: "CREATED"`                                                                                          |
+| GET /payments/:id/history          | 200, `{ entries: [...] }`, oldest first. Each entry: `{ from, to, event, reason, recordedAt }`. First entry has `from: null`, `to: "CREATED"`                                                      |
 | Any 409                            | Body has a `rule` string a human can read, naming the window where one applies: "2 banking days", "60 calendar days", "5 banking days"                                                             |
 
 Use `src/shared/calendar.ts` for day arithmetic; the tests use the same file. The bank's line types are in `src/bank/bank-report.ts`; `returnDate` on a RETURN line is the settlement date of the return entry.

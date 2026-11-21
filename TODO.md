@@ -1,5 +1,13 @@
 # Payments Platform TODO
 
+## Recommended next order
+
+1. Define common error information: `code`, `message`, and optional `rule`.
+2. Standardize the HTTP error envelope.
+3. Standardize the bank report line-result error shape.
+4. Extract ACH/NACHA return and reversal policy definitions.
+5. Update `BankService` error translation using the settled contracts.
+
 ## PaymentsService
 
 - [x] Implement `GET /payments/:id/history`.

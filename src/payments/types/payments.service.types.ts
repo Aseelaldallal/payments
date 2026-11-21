@@ -49,5 +49,5 @@ export interface PaymentHistoryEntry {
   to: PaymentStatus;
   event: PaymentEvent;
   reason: string | null;
-  at: string;
+  recordedAt: string;
 }
