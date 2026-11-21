@@ -1,7 +1,9 @@
 import { ClassSerializerInterceptor, Module, ValidationPipe } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_PIPE, Reflector } from '@nestjs/core';
+import type { ValidationError } from 'class-validator';
 import { PaymentsModule } from './payments/payments.module';
 import { BankModule } from './bank/bank.module';
+import { ValidationFailedException } from './shared/http/exceptions/validation-failed.exception';
 
 @Module({
   imports: [PaymentsModule, BankModule],
@@ -24,6 +26,18 @@ import { BankModule } from './bank/bank.module';
         transform: true,
         whitelist: true,
         forbidNonWhitelisted: true,
+        // ValidationPipe calls this factory when request DTO validation fails.
+        // Convert class-validator's errors into the API's validation-error shape.
+        exceptionFactory: (validationErrors: ValidationError[]) =>
+          new ValidationFailedException(
+            validationErrors.flatMap((error) => {
+              const messages = Object.values(error.constraints ?? {});
+              return messages.map((message) => ({
+                field: error.property,
+                message,
+              }));
+            }),
+          ),
       }),
     },
     // APP_INTERCEPTOR is the slot that makes an interceptor apply to every route in the

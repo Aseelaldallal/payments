@@ -5,7 +5,6 @@ import { PaymentError, PaymentErrorCode } from '../errors/payment.error';
 interface PaymentErrorResponse {
   statusCode: HttpStatus;
   message: string;
-  rule?: string;
 }
 
 /**
@@ -24,32 +23,26 @@ const PAYMENT_ERROR_RESPONSES: Record<PaymentErrorCode, PaymentErrorResponse> = 
   [PaymentErrorCode.IllegalPaymentTransition]: {
     statusCode: HttpStatus.CONFLICT,
     message: 'The payment cannot move to the requested status from its current status.',
-    rule: 'Illegal payment status transition',
   },
   [PaymentErrorCode.ReversalDatePrecedesSettlement]: {
     statusCode: HttpStatus.CONFLICT,
-    message: 'The reversal cannot be applied.',
-    rule: 'Reversal date cannot precede settlement date.',
+    message: 'Reversal date cannot precede settlement date.',
   },
   [PaymentErrorCode.ReversalWindowExpired]: {
     statusCode: HttpStatus.CONFLICT,
-    message: 'The reversal cannot be applied.',
-    rule: 'Reversal must occur within 5 banking days of settlement.',
+    message: 'Reversal must occur within 5 banking days of settlement.',
   },
   [PaymentErrorCode.ReturnDatePrecedesSettlement]: {
     statusCode: HttpStatus.CONFLICT,
-    message: 'The return cannot be applied.',
-    rule: 'Return date cannot precede settlement date.',
+    message: 'Return date cannot precede settlement date.',
   },
   [PaymentErrorCode.StandardReturnWindowExpired]: {
     statusCode: HttpStatus.CONFLICT,
-    message: 'The return cannot be applied.',
-    rule: 'Return must occur within 2 banking days of settlement.',
+    message: 'Return must occur within 2 banking days of settlement.',
   },
   [PaymentErrorCode.ExtendedReturnWindowExpired]: {
     statusCode: HttpStatus.CONFLICT,
-    message: 'The return cannot be applied.',
-    rule: 'Return must occur within 60 calendar days of settlement.',
+    message: 'Return must occur within 60 calendar days of settlement.',
   },
   [PaymentErrorCode.InvalidDate]: {
     statusCode: HttpStatus.BAD_REQUEST,
@@ -61,13 +54,12 @@ const PAYMENT_ERROR_RESPONSES: Record<PaymentErrorCode, PaymentErrorResponse> = 
 export class PaymentErrorFilter implements ExceptionFilter {
   public catch(exception: PaymentError, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    const { statusCode, message, rule } = PAYMENT_ERROR_RESPONSES[exception.code];
+    const { statusCode, message } = PAYMENT_ERROR_RESPONSES[exception.code];
 
     response.status(statusCode).json({
       statusCode,
       code: exception.code,
       message,
-      ...(rule ? { rule } : {}),
     });
   }
 }

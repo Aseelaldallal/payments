@@ -33,6 +33,7 @@
 ## PaymentsController and API
 
 - [ ] Standardize one HTTP error envelope across Nest validation, UUID parsing, malformed JSON, and application errors.
+- [ ] Define API error codes in a shared enum instead of repeating string literals.
 - [ ] Decide the field-validation response shape.
 - [ ] Add response DTOs instead of returning the internal `Payment` object directly.
 - [ ] Decide whether controllers should explicitly map transport DTOs to service inputs.
