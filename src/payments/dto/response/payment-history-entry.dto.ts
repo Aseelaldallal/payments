@@ -1,6 +1,6 @@
 import { Expose } from 'class-transformer';
-import { PaymentEvent } from '../domain/payment-event.enum';
-import { PaymentStatus } from '../domain/payment-status.enum';
+import { PaymentEvent } from '../../domain/payment-event.enum';
+import { PaymentStatus } from '../../domain/payment-status.enum';
 
 export class PaymentHistoryEntryResponseDto {
   @Expose()

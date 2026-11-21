@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, Post, SerializeOptions } from '@nestjs/common';
 import { BankReport } from './bank-report';
 import { BankService } from './bank.service';
-import { BankReportResponseDto } from './dto/bank-report-response.dto';
+import { BankReportResponseDto } from './dto/response/bank-report.dto';
 
 @Controller('bank')
 export class BankController {

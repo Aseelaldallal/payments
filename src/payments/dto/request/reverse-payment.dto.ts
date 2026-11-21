@@ -1,7 +1,7 @@
 import { IsIn } from 'class-validator';
-import { REVERSAL_REASONS, ReversalReason } from '../domain/reversal-reason';
+import { REVERSAL_REASONS, ReversalReason } from '../../domain/reversal-reason';
 
-export class ReversePaymentDto {
+export class ReversePaymentRequestDto {
   /** Reason for originating the reversing entry. */
   @IsIn(REVERSAL_REASONS)
   public reason: ReversalReason;

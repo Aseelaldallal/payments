@@ -1,9 +1,6 @@
 import { Expose } from 'class-transformer';
-import { PaymentStatus } from '../domain/payment-status.enum';
-import {
-  ReceiverAccountType,
-  SecCode,
-} from '../types/payments.service.types';
+import { PaymentStatus } from '../../domain/payment-status.enum';
+import { ReceiverAccountType, SecCode } from '../../types/payments.service.types';
 
 export class PaymentResponseDto {
   @Expose()

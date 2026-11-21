@@ -10,10 +10,10 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
-import { CreatePaymentDto } from './dto/create-payment.dto';
-import { PaymentHistoryResponseDto } from './dto/payment-history-response.dto';
-import { PaymentResponseDto } from './dto/payment-response.dto';
-import { ReversePaymentDto } from './dto/reverse-payment.dto';
+import { CreatePaymentRequestDto } from './dto/request/create-payment.dto';
+import { ReversePaymentRequestDto } from './dto/request/reverse-payment.dto';
+import { PaymentHistoryResponseDto } from './dto/response/payment-history.dto';
+import { PaymentResponseDto } from './dto/response/payment.dto';
 import { PaymentErrorFilter } from './filters/payment-error.filter';
 
 @UseFilters(PaymentErrorFilter)
@@ -23,7 +23,7 @@ export class PaymentsController {
 
   @Post()
   @SerializeOptions({ type: PaymentResponseDto })
-  create(@Body() body: CreatePaymentDto) {
+  create(@Body() body: CreatePaymentRequestDto) {
     return this.payments.create(body);
   }
 
@@ -59,7 +59,7 @@ export class PaymentsController {
   @Post(':id/reverse')
   @HttpCode(200)
   @SerializeOptions({ type: PaymentResponseDto })
-  reverse(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Body() body: ReversePaymentDto) {
+  reverse(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Body() body: ReversePaymentRequestDto) {
     return this.payments.reverse(id, body.reason);
   }
 }

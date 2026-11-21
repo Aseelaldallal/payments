@@ -1,7 +1,7 @@
 import { IsDateString, IsIn, IsInt, IsNotEmpty, IsString, Matches, Min } from 'class-validator';
-import { ReceiverAccountType, SecCode } from '../types/payments.service.types';
+import { ReceiverAccountType, SecCode } from '../../types/payments.service.types';
 
-export class CreatePaymentDto {
+export class CreatePaymentRequestDto {
   /** Identifier of the platform partner requesting the ACH pull. */
   @IsString()
   @IsNotEmpty()
