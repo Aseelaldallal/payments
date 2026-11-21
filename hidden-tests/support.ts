@@ -75,12 +75,14 @@ export class Harness {
   async history(id: string) {
     const res = await this.http().get(`/payments/${id}/history`);
     expect(res.status).toBe(200);
-    return res.body as Array<{
+    // Collections come back as an object containing a named array.
+    expect(Array.isArray(res.body.entries)).toBe(true);
+    return res.body.entries as Array<{
       from: string | null;
       to: string;
       event: string;
       reason?: string | null;
-      at: string;
+      recordedAt: string;
     }>;
   }
 

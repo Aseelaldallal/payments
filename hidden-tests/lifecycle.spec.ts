@@ -302,9 +302,9 @@ describe('Project 1: the lifecycle', () => {
       for (const entry of history) {
         expect(typeof entry.event).toBe('string');
         expect(entry.event.length).toBeGreaterThan(0);
-        expect(Number.isNaN(Date.parse(entry.at))).toBe(false);
+        expect(Number.isNaN(Date.parse(entry.recordedAt))).toBe(false);
       }
-      const times = history.map((x) => Date.parse(x.at));
+      const times = history.map((x) => Date.parse(x.recordedAt));
       expect([...times].sort((a, b) => a - b)).toEqual(times);
     });
 
