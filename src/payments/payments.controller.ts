@@ -11,6 +11,7 @@ import {
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ReversePaymentDto } from './dto/reverse-payment.dto';
+import { PaymentHistoryEntry } from './domain/payment-history-entry.interface';
 import { PaymentErrorFilter } from './filters/payment-error.filter';
 
 @UseFilters(PaymentErrorFilter)
@@ -21,6 +22,13 @@ export class PaymentsController {
   @Post()
   create(@Body() body: CreatePaymentDto) {
     return this.payments.create(body);
+  }
+
+  @Get(':id/history')
+  public getHistory(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): PaymentHistoryEntry[] {
+    return this.payments.getHistory(id);
   }
 
   @Get(':id')

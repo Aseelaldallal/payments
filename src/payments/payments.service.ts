@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { PaymentHistoryEntry } from './domain/payment-history-entry.interface';
 import { Payment } from './domain/payment.interface';
 import { PaymentStatus } from './domain/payment-status.enum';
 import { PaymentsRepository } from './payments.repository';
@@ -283,6 +284,25 @@ export class PaymentsService {
       event: failureCause,
       reason: failureReason,
     });
+  }
+
+  /**
+   * Reads a payment's status history in chronological order.
+   *
+   * @param id The payment identifier.
+   * @returns The payment's status changes, oldest first.
+   * @throws {PaymentError} When the payment does not exist.
+   */
+  public getHistory(id: string): PaymentHistoryEntry[] {
+    this.get(id); // Ensure the parent payment exists.
+    const history = this.repo.findHistoryByPaymentId(id);
+    return history.map((record, index) => ({
+      from: index === 0 ? null : history[index - 1].status,
+      to: record.status,
+      event: record.event,
+      reason: record.reason,
+      at: record.createdAt,
+    }));
   }
 
   /** Persists a status change after the public operation validates the transition. */

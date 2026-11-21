@@ -2,8 +2,8 @@
 
 ## PaymentsService
 
-- [ ] Implement `GET /payments/:id/history`.
-- [ ] Discuss whether the stored history timestamp should be named `createdAt` and mapped to API field `at`.
+- [x] Implement `GET /payments/:id/history`.
+- [x] Store history timestamps as `createdAt` and map them to API field `at`.
 - [ ] Add comprehensive unit tests for `PaymentsService`, repository history behavior, and rejected transitions.
 - [ ] Replace hardcoded payment history event strings with a fixed typed event vocabulary.
 - [ ] Implement scheduled `SETTLED -> FINAL` processing.
