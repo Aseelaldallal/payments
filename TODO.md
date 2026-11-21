@@ -2,7 +2,7 @@
 
 ## Recommended next order
 
-1. Define common error information: `code`, `message`, and optional `rule`.
+1. Define common error information: `code` and `message`.
 2. Standardize the HTTP error envelope.
 3. Standardize the bank report line-result error shape.
 4. Extract ACH/NACHA return and reversal policy definitions.
@@ -23,8 +23,8 @@
 ## BankService
 
 - [x] Update bank-report rejection handling to pass the correct failure cause into `PaymentsService.fail`.
-- [ ] Translate coded payment failures into human-readable report-line rules.
-- [ ] Ensure unexpected/internal errors do not expose their messages in report results.
+- [x] Translate coded payment failures into human-readable report-line errors.
+- [x] Ensure unexpected/internal errors do not expose their messages in report results.
 - [ ] Finish strict validation of bank-report dates.
 - [ ] Review top-level bank-report DTO/runtime validation and validation ownership.
 - [ ] Decide how to handle NOC lines and update account data.

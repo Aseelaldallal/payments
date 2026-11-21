@@ -1,6 +1,8 @@
 export class BankReportLineValidationError extends Error {
-  constructor(public readonly rule: string) {
-    super(rule);
+  public readonly code = 'MALFORMED_REPORT_LINE';
+
+  public constructor(message: string) {
+    super(message);
     this.name = 'BankReportLineValidationError';
   }
 }

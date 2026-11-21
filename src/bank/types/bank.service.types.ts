@@ -2,9 +2,16 @@
  * Outputs
  * ------------------------------------------------------------- */
 
-export interface BankReportLineResult {
-  paymentId: string;
-  type: string;
-  applied: boolean;
-  rule?: string;
-}
+export type BankReportLineResult =
+  | {
+      paymentId: string;
+      type: string;
+      applied: true;
+    }
+  | {
+      paymentId: string;
+      type: string;
+      applied: false;
+      code: string;
+      message: string;
+    };

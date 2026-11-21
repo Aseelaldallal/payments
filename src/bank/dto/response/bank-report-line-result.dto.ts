@@ -11,5 +11,8 @@ export class BankReportLineResultResponseDto {
   public applied: boolean;
 
   @Expose()
-  public rule?: string;
+  public code?: string;
+
+  @Expose()
+  public message?: string;
 }

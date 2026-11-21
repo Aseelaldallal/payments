@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentEvent } from '../payments/domain/payment-event.enum';
+import { PaymentError } from '../payments/errors/payment.error';
 import { PaymentsService } from '../payments/payments.service';
 import { BankReport, BankReportLine } from './bank-report';
 import { BankReportLineValidationError } from './bank-report-line-validation.error';
@@ -43,11 +44,13 @@ export class BankService {
         applied: true,
       };
     } catch (error) {
+      const { code, message } = this.getError(error);
       return {
         paymentId,
         type,
         applied: false,
-        rule: this.getRule(error),
+        code,
+        message,
       };
     }
   }
@@ -109,13 +112,22 @@ export class BankService {
     }
   }
 
-  private getRule(error: unknown): string {
+  private getError(error: unknown): { code: string; message: string } {
     if (error instanceof BankReportLineValidationError) {
-      return error.rule;
+      return {
+        code: error.code,
+        message: error.message,
+      };
     }
-    if (error instanceof Error) {
-      return error.message;
+    if (error instanceof PaymentError) {
+      return {
+        code: error.code,
+        message: error.message,
+      };
     }
-    return 'Unable to apply bank report line';
+    return {
+      code: 'LINE_PROCESSING_FAILED',
+      message: 'Unable to apply bank report line',
+    };
   }
 }
