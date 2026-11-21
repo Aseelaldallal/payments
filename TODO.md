@@ -20,7 +20,7 @@
 - [ ] Finish strict validation of bank-report dates.
 - [ ] Review top-level bank-report DTO/runtime validation and validation ownership.
 - [ ] Decide how to handle NOC lines and update account data.
-- [ ] Move bank report result interfaces out of `bank.service.ts`.
+- [x] Move bank report result interfaces out of `bank.service.ts`.
 
 ## PaymentsController and API
 

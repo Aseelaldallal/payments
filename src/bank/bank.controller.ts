@@ -10,6 +10,8 @@ export class BankController {
   @Post('reports')
   @HttpCode(200)
   applyReport(@Body() report: BankReport) {
-    return this.bank.applyReport(report);
+    return {
+      results: this.bank.applyReport(report),
+    };
   }
 }

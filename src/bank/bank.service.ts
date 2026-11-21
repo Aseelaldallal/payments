@@ -3,17 +3,7 @@ import { PaymentEvent } from '../payments/domain/payment-event.enum';
 import { PaymentsService } from '../payments/payments.service';
 import { BankReport, BankReportLine } from './bank-report';
 import { BankReportLineValidationError } from './bank-report-line-validation.error';
-
-export interface BankReportLineResult {
-  paymentId: string;
-  type: string;
-  applied: boolean;
-  rule?: string;
-}
-
-export interface BankReportResult {
-  results: BankReportLineResult[];
-}
+import type { BankReportLineResult } from './types/bank.service.types';
 
 /**
  * Consumes the bank's daily reports and applies each line independently.
@@ -29,10 +19,8 @@ export class BankService {
    * @param report The bank report to process.
    * @returns Per-line application outcomes in the bank-provided order.
    */
-  public applyReport(report: BankReport): BankReportResult {
-    return {
-      results: report.lines.map((line) => this.processLine(line)),
-    };
+  public applyReport(report: BankReport): BankReportLineResult[] {
+    return report.lines.map((line) => this.processLine(line));
   }
 
   private processLine(line: BankReportLine): BankReportLineResult {
