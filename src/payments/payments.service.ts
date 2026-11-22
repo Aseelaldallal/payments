@@ -1,17 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { bankingDaysBetween } from '../ach/domain/banking-calendar';
+import { AchWindowPolicyService } from '../ach/ach-window-policy.service';
 import { ReversalReason } from '../ach/domain/reversal-reason';
-import { calendarDaysBetween, isValidIsoDate } from '../shared/iso-date';
+import { isValidIsoDate } from '../shared/iso-date';
 import { PaymentEvent } from './domain/payment-event.enum';
 import { PaymentStatus } from './domain/payment-status.enum';
-import { PaymentsRepository } from './payments.repository';
 import { PaymentError, PaymentErrorCode } from './errors/payment.error';
+import { PaymentsRepository } from './payments.repository';
 import { CreatePaymentInput, Payment, PaymentHistoryEntry } from './types/payments.service.types';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly repo: PaymentsRepository) {}
+  constructor(
+    private readonly repo: PaymentsRepository,
+    private readonly achWindowPolicyService: AchWindowPolicyService,
+  ) {}
 
   /**
    * Creates a payment in the CREATED status from structurally validated input.
@@ -23,7 +26,7 @@ export class PaymentsService {
   public create(input: CreatePaymentInput): Payment {
     this.assertValidDate('effectiveDate', input.effectiveDate);
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
-      throw new PaymentError(PaymentErrorCode.InvalidPaymentAmount, {
+      throw new PaymentError(PaymentErrorCode.INVALID_PAYMENT_AMOUNT, {
         amountCents: input.amountCents,
       });
     }
@@ -54,7 +57,9 @@ export class PaymentsService {
   public get(id: string): Payment {
     const payment = this.repo.findById(id);
     if (!payment) {
-      throw new PaymentError(PaymentErrorCode.PaymentNotFound, { paymentId: id });
+      throw new PaymentError(PaymentErrorCode.PAYMENT_NOT_FOUND, {
+        paymentId: id,
+      });
     }
     return payment;
   }
@@ -63,7 +68,7 @@ export class PaymentsService {
   public submit(id: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.CREATED) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.SUBMITTED,
@@ -80,7 +85,7 @@ export class PaymentsService {
   public cancel(id: string): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.CREATED) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.CANCELLED,
@@ -103,7 +108,7 @@ export class PaymentsService {
   public reverse(id: string, reason: ReversalReason): Payment {
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.REVERSED,
@@ -111,22 +116,10 @@ export class PaymentsService {
     }
     const settlementDate = payment.settlementDate!;
     const reversalDate = new Date().toISOString().slice(0, 10);
-    const bankingDaysDelta = bankingDaysBetween(settlementDate, reversalDate);
-    if (bankingDaysDelta < 0) {
-      throw new PaymentError(PaymentErrorCode.ReversalDatePrecedesSettlement, {
-        paymentId: id,
-        settlementDate,
-        reversalDate,
-      });
-    }
-    if (bankingDaysDelta > 5) {
-      throw new PaymentError(PaymentErrorCode.ReversalWindowExpired, {
-        paymentId: id,
-        settlementDate,
-        reversalDate,
-        bankingDaysElapsed: bankingDaysDelta,
-      });
-    }
+    this.achWindowPolicyService.assertReversalWindowOpen({
+      settlementDate,
+      reversalDate,
+    });
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.REVERSED,
@@ -149,46 +142,19 @@ export class PaymentsService {
     this.assertValidDate('returnDate', returnDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SETTLED) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.RETURNED,
       });
     }
     const settlementDate = payment.settlementDate!;
-    const bankingDaysDelta = bankingDaysBetween(settlementDate, returnDate);
-    const calendarDaysDelta = calendarDaysBetween(settlementDate, returnDate);
-    const notAuthorizedFamily = ['R05', 'R07', 'R10', 'R11'];
-    const hasExtendedWindow = payment.receiverAccountType === 'consumer' && notAuthorizedFamily.includes(returnCode);
-    if (calendarDaysDelta < 0) {
-      throw new PaymentError(PaymentErrorCode.ReturnDatePrecedesSettlement, {
-        paymentId: id,
-        returnCode,
-        settlementDate,
-        returnDate,
-        receiverAccountType: payment.receiverAccountType,
-      });
-    }
-    if (hasExtendedWindow && calendarDaysDelta > 60) {
-      throw new PaymentError(PaymentErrorCode.ExtendedReturnWindowExpired, {
-        paymentId: id,
-        returnCode,
-        settlementDate,
-        returnDate,
-        receiverAccountType: payment.receiverAccountType,
-        calendarDaysElapsed: calendarDaysDelta,
-      });
-    }
-    if (!hasExtendedWindow && bankingDaysDelta > 2) {
-      throw new PaymentError(PaymentErrorCode.StandardReturnWindowExpired, {
-        paymentId: id,
-        returnCode,
-        settlementDate,
-        returnDate,
-        receiverAccountType: payment.receiverAccountType,
-        bankingDaysElapsed: bankingDaysDelta,
-      });
-    }
+    this.achWindowPolicyService.assertReturnWindowOpen({
+      returnCode,
+      returnDate,
+      receiverAccountType: payment.receiverAccountType,
+      settlementDate,
+    });
     return this.setStatus({
       paymentId: id,
       status: PaymentStatus.RETURNED,
@@ -210,7 +176,7 @@ export class PaymentsService {
     this.assertValidDate('settlementDate', settlementDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.SUBMITTED) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.PROCESSING,
@@ -235,7 +201,7 @@ export class PaymentsService {
     this.assertValidDate('settlementDate', settlementDate);
     const payment = this.get(id);
     if (payment.status !== PaymentStatus.PROCESSING) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId: id,
         from: payment.status,
         to: PaymentStatus.SETTLED,
@@ -271,7 +237,7 @@ export class PaymentsService {
       payment.status !== PaymentStatus.SUBMITTED &&
       payment.status !== PaymentStatus.PROCESSING
     ) {
-      throw new PaymentError(PaymentErrorCode.IllegalPaymentTransition, {
+      throw new PaymentError(PaymentErrorCode.ILLEGAL_PAYMENT_TRANSITION, {
         paymentId,
         from: payment.status,
         to: PaymentStatus.FAILED,
@@ -326,7 +292,7 @@ export class PaymentsService {
       changes: patch,
     });
     if (!updatedPayment) {
-      throw new PaymentError(PaymentErrorCode.PaymentNotFound, {
+      throw new PaymentError(PaymentErrorCode.PAYMENT_NOT_FOUND, {
         paymentId,
       });
     }
@@ -335,7 +301,7 @@ export class PaymentsService {
 
   private assertValidDate(field: 'effectiveDate' | 'settlementDate' | 'returnDate', value: string): void {
     if (!isValidIsoDate(value)) {
-      throw new PaymentError(PaymentErrorCode.InvalidDate, {
+      throw new PaymentError(PaymentErrorCode.INVALID_DATE, {
         field,
         value,
       });

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AchWindowPolicyError } from '../ach/errors/ach-window-policy.error';
 import { PaymentEvent } from '../payments/domain/payment-event.enum';
 import { PaymentError } from '../payments/errors/payment.error';
 import { PaymentsService } from '../payments/payments.service';
@@ -119,7 +120,7 @@ export class BankService {
         message: error.message,
       };
     }
-    if (error instanceof PaymentError) {
+    if (error instanceof PaymentError || error instanceof AchWindowPolicyError) {
       return {
         code: error.code,
         message: error.message,
