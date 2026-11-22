@@ -56,8 +56,41 @@ export class Harness {
     return this.http().post(`/payments/${id}/cancel`).send();
   }
 
-  async reverse(id: string, reason: string, date: string) {
-    return this.http().post(`/payments/${id}/reverse`).send({ reason, date });
+  /**
+   * The API takes only a reason and treats the reversal as happening now, so
+   * `on` moves the clock to that date for this one request.
+   */
+  async reverse(id: string, reason: string, on?: string) {
+    const send = () => this.http().post(`/payments/${id}/reverse`).send({ reason });
+    return on ? this.at(on, send) : send();
+  }
+
+  /** Runs `fn` with the system clock at noon UTC on `date`. Only Date is faked. */
+  async at<T>(date: string, fn: () => PromiseLike<T> | T): Promise<T> {
+    jest.useFakeTimers({
+      now: new Date(`${date}T12:00:00.000Z`),
+      doNotFake: [
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    });
+    try {
+      return await fn();
+    } finally {
+      jest.useRealTimers();
+    }
   }
 
   async patchStatus(id: string, status: string) {
@@ -68,7 +101,13 @@ export class Harness {
     const res = await this.http().post('/bank/reports').send({ reportDate, lines });
     expect(res.status).toBe(200);
     return res.body as {
-      results: Array<{ paymentId: string; type: string; applied: boolean; rule?: string }>;
+      results: Array<{
+        paymentId: string;
+        type: string;
+        applied: boolean;
+        code?: string;
+        message?: string;
+      }>;
     };
   }
 
@@ -98,10 +137,18 @@ export class Harness {
   }
 }
 
-/** A rejected transition: HTTP 409 with a human-readable rule. */
-export function expectRejected(res: request.Response, rulePattern?: RegExp) {
+/** A rejected transition: HTTP 409 with a code and a human-readable message. */
+export function expectRejected(res: request.Response, messagePattern?: RegExp) {
   expect(res.status).toBe(409);
-  expect(typeof res.body.rule).toBe('string');
-  expect(res.body.rule.length).toBeGreaterThan(0);
-  if (rulePattern) expect(res.body.rule).toMatch(rulePattern);
+  expect(typeof res.body.code).toBe('string');
+  expect(typeof res.body.message).toBe('string');
+  expect(res.body.message.length).toBeGreaterThan(0);
+  if (messagePattern) expect(res.body.message).toMatch(messagePattern);
+}
+
+/** Invalid input: HTTP 400, VALIDATION_FAILED, with the offending field named. */
+export function expectInvalid(res: request.Response, field: string) {
+  expect(res.status).toBe(400);
+  expect(res.body.code).toBe('VALIDATION_FAILED');
+  expect(res.body.errors.map((e: { field: string }) => e.field)).toContain(field);
 }

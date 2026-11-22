@@ -1,4 +1,4 @@
-import { Harness, expectRejected } from './support';
+import { Harness, expectInvalid, expectRejected } from './support';
 
 /**
  * Project 1: the lifecycle.
@@ -27,17 +27,13 @@ describe('Project 1: the lifecycle', () => {
       expect(s.status).toBe(200);
       expect((await h.get(p.id)).status).toBe('SUBMITTED');
 
-      const ack = await h.report([
-        { type: 'ACKNOWLEDGED', paymentId: p.id, settlementDate: '2026-09-08' },
-      ]);
+      const ack = await h.report([{ type: 'ACKNOWLEDGED', paymentId: p.id, settlementDate: '2026-09-08' }]);
       expect(ack.results[0].applied).toBe(true);
       const processing = await h.get(p.id);
       expect(processing.status).toBe('PROCESSING');
       expect(processing.settlementDate).toBe('2026-09-08');
 
-      const settled = await h.report([
-        { type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' },
-      ]);
+      const settled = await h.report([{ type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' }]);
       expect(settled.results[0].applied).toBe(true);
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
@@ -48,7 +44,7 @@ describe('Project 1: the lifecycle', () => {
       const p = await h.settled();
       const res = await h.patchStatus(p.id, 'CREATED');
       expect([404, 409]).toContain(res.status);
-      if (res.status === 409) expect(typeof res.body.rule).toBe('string');
+      if (res.status === 409) expect(typeof res.body.message).toBe('string');
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
 
@@ -62,11 +58,10 @@ describe('Project 1: the lifecycle', () => {
     it('ignores a SETTLED line for a payment the bank never acknowledged', async () => {
       const p = await h.create();
       await h.submit(p.id);
-      const r = await h.report([
-        { type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' },
-      ]);
+      const r = await h.report([{ type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' }]);
       expect(r.results[0].applied).toBe(false);
-      expect(typeof r.results[0].rule).toBe('string');
+      expect(typeof r.results[0].code).toBe('string');
+      expect(typeof r.results[0].message).toBe('string');
       expect((await h.get(p.id)).status).toBe('SUBMITTED');
     });
 
@@ -74,9 +69,7 @@ describe('Project 1: the lifecycle', () => {
       const p = await h.create();
       await h.submit(p.id);
       await h.report([{ type: 'ACKNOWLEDGED', paymentId: p.id, settlementDate: '2026-09-08' }]);
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-09' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-09' }]);
       expect(r.results[0].applied).toBe(false);
       expect((await h.get(p.id)).status).toBe('PROCESSING');
     });
@@ -85,9 +78,7 @@ describe('Project 1: the lifecycle', () => {
       const p = await h.settled();
       await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-09' }]);
       expect((await h.get(p.id)).status).toBe('RETURNED');
-      const again = await h.report([
-        { type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' },
-      ]);
+      const again = await h.report([{ type: 'SETTLED', paymentId: p.id, settlementDate: '2026-09-08' }]);
       expect(again.results[0].applied).toBe(false);
       expect((await h.get(p.id)).status).toBe('RETURNED');
       const rev = await h.reverse(p.id, 'duplicate', '2026-09-10');
@@ -116,16 +107,12 @@ describe('Project 1: the lifecycle', () => {
       const b = await h.create();
       await h.submit(b.id);
       await h.report([{ type: 'ACKNOWLEDGED', paymentId: b.id, settlementDate: '2026-09-08' }]);
-      const rb = await h.report([
-        { type: 'OPERATOR_REJECTED', paymentId: b.id, reason: 'invalid routing number' },
-      ]);
+      const rb = await h.report([{ type: 'OPERATOR_REJECTED', paymentId: b.id, reason: 'invalid routing number' }]);
       expect(rb.results[0].applied).toBe(true);
       expect((await h.get(b.id)).status).toBe('FAILED');
 
       const c = await h.create();
-      const rc = await h.report([
-        { type: 'REJECTED', paymentId: c.id, reason: 'nothing was sent' },
-      ]);
+      const rc = await h.report([{ type: 'REJECTED', paymentId: c.id, reason: 'nothing was sent' }]);
       expect(rc.results[0].applied).toBe(false);
       expect((await h.get(c.id)).status).toBe('CREATED');
     });
@@ -134,9 +121,7 @@ describe('Project 1: the lifecycle', () => {
   describe('return windows', () => {
     it('applies a business return inside 2 banking days', async () => {
       const p = await h.settled({ receiverAccountType: 'business', secCode: 'CCD' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R29', returnDate: '2026-09-10' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R29', returnDate: '2026-09-10' }]);
       expect(r.results[0].applied).toBe(true);
       const after = await h.get(p.id);
       expect(after.status).toBe('RETURNED');
@@ -146,11 +131,9 @@ describe('Project 1: the lifecycle', () => {
 
     it('rejects a business return on the 3rd banking day, naming the 2 banking day rule', async () => {
       const p = await h.settled({ receiverAccountType: 'business', secCode: 'CCD' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R29', returnDate: '2026-09-11' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R29', returnDate: '2026-09-11' }]);
       expect(r.results[0].applied).toBe(false);
-      expect(r.results[0].rule).toMatch(/2 banking days/i);
+      expect(r.results[0].message).toMatch(/2 banking days/i);
       const after = await h.get(p.id);
       expect(after.status).toBe('SETTLED');
       expect(after.returnCode).toBeNull();
@@ -158,19 +141,15 @@ describe('Project 1: the lifecycle', () => {
 
     it('gives a business account no extended window, even for a not-authorized code', async () => {
       const p = await h.settled({ receiverAccountType: 'business', secCode: 'CCD' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-09-14' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-09-14' }]);
       expect(r.results[0].applied).toBe(false);
-      expect(r.results[0].rule).toMatch(/2 banking days/i);
+      expect(r.results[0].message).toMatch(/2 banking days/i);
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
 
     it('applies a consumer R10 inside 60 calendar days', async () => {
       const p = await h.settled({ receiverAccountType: 'consumer', secCode: 'WEB' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-11-03' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-11-03' }]);
       expect(r.results[0].applied).toBe(true);
       expect((await h.get(p.id)).status).toBe('RETURNED');
     });
@@ -178,9 +157,7 @@ describe('Project 1: the lifecycle', () => {
     it('applies every extended code for a consumer: R05, R07, R10, R11', async () => {
       for (const code of ['R05', 'R07', 'R10', 'R11']) {
         const p = await h.settled({ receiverAccountType: 'consumer', secCode: 'PPD' });
-        const r = await h.report([
-          { type: 'RETURN', paymentId: p.id, code, returnDate: '2026-10-20' },
-        ]);
+        const r = await h.report([{ type: 'RETURN', paymentId: p.id, code, returnDate: '2026-10-20' }]);
         expect(r.results[0].applied).toBe(true);
         expect((await h.get(p.id)).status).toBe('RETURNED');
       }
@@ -188,43 +165,29 @@ describe('Project 1: the lifecycle', () => {
 
     it('rejects a consumer R10 on day 62, naming the 60 calendar day rule', async () => {
       const p = await h.settled({ receiverAccountType: 'consumer', secCode: 'WEB' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-11-09' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R10', returnDate: '2026-11-09' }]);
       expect(r.results[0].applied).toBe(false);
-      expect(r.results[0].rule).toMatch(/60 calendar days/i);
+      expect(r.results[0].message).toMatch(/60 calendar days/i);
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
 
     it('rejects a consumer R01 on the 4th banking day: money codes get only the standard window', async () => {
       const p = await h.settled({ receiverAccountType: 'consumer', secCode: 'WEB' });
-      const r = await h.report([
-        { type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-14' },
-      ]);
+      const r = await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-14' }]);
       expect(r.results[0].applied).toBe(false);
-      expect(r.results[0].rule).toMatch(/2 banking days/i);
+      expect(r.results[0].message).toMatch(/2 banking days/i);
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
 
     it('counts banking days, not calendar days, across a Fed holiday', async () => {
       // Settles Wed 2026-11-25. Thu 11-26 is Thanksgiving. Banking day 1 is Fri 11-27, day 2 is Mon 11-30.
-      const inside = await h.settled(
-        { receiverAccountType: 'business', secCode: 'CCD' },
-        '2026-11-25',
-      );
-      const r1 = await h.report([
-        { type: 'RETURN', paymentId: inside.id, code: 'R01', returnDate: '2026-11-30' },
-      ]);
+      const inside = await h.settled({ receiverAccountType: 'business', secCode: 'CCD' }, '2026-11-25');
+      const r1 = await h.report([{ type: 'RETURN', paymentId: inside.id, code: 'R01', returnDate: '2026-11-30' }]);
       expect(r1.results[0].applied).toBe(true);
       expect((await h.get(inside.id)).status).toBe('RETURNED');
 
-      const outside = await h.settled(
-        { receiverAccountType: 'business', secCode: 'CCD' },
-        '2026-11-25',
-      );
-      const r2 = await h.report([
-        { type: 'RETURN', paymentId: outside.id, code: 'R01', returnDate: '2026-12-01' },
-      ]);
+      const outside = await h.settled({ receiverAccountType: 'business', secCode: 'CCD' }, '2026-11-25');
+      const r2 = await h.report([{ type: 'RETURN', paymentId: outside.id, code: 'R01', returnDate: '2026-12-01' }]);
       expect(r2.results[0].applied).toBe(false);
       expect((await h.get(outside.id)).status).toBe('SETTLED');
     });
@@ -260,7 +223,7 @@ describe('Project 1: the lifecycle', () => {
     it('rejects a reversal for a reason the rules do not allow', async () => {
       const p = await h.settled();
       const res = await h.reverse(p.id, 'customer_changed_mind', '2026-09-09');
-      expectRejected(res);
+      expectInvalid(res, 'reason');
       expect((await h.get(p.id)).status).toBe('SETTLED');
     });
 
@@ -288,13 +251,7 @@ describe('Project 1: the lifecycle', () => {
       await h.report([{ type: 'RETURN', paymentId: p.id, code: 'R01', returnDate: '2026-09-09' }]);
 
       const history = await h.history(p.id);
-      expect(history.map((x) => x.to)).toEqual([
-        'CREATED',
-        'SUBMITTED',
-        'PROCESSING',
-        'SETTLED',
-        'RETURNED',
-      ]);
+      expect(history.map((x) => x.to)).toEqual(['CREATED', 'SUBMITTED', 'PROCESSING', 'SETTLED', 'RETURNED']);
       expect(history[0].from).toBeNull();
       for (let i = 1; i < history.length; i += 1) {
         expect(history[i].from).toBe(history[i - 1].to);
