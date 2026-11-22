@@ -1,4 +1,4 @@
-import { addCalendarDays, parseIsoDate } from './iso-date';
+import { addCalendarDays, parseIsoDate } from '../../shared/iso-date';
 
 /**
  * Banking-day calendar.
@@ -36,31 +36,34 @@ const HOLIDAYS = new Set<string>([
 ]);
 
 export function isBankingDay(iso: string): boolean {
-  const d = parseIsoDate(iso);
-  const dow = d.getUTCDay();
-  if (dow === 0 || dow === 6) return false;
+  const date = parseIsoDate(iso);
+  const dayOfWeek = date.getUTCDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
   return !HOLIDAYS.has(iso);
 }
 
 /** The n-th banking day after `iso` (n >= 1). n = 0 returns `iso` itself. */
-export function addBankingDays(iso: string, n: number): string {
-  let cur = iso;
-  let left = n;
-  while (left > 0) {
-    cur = addCalendarDays(cur, 1);
-    if (isBankingDay(cur)) left -= 1;
+export function addBankingDays(iso: string, count: number): string {
+  let currentDate = iso;
+  let remainingDays = count;
+  while (remainingDays > 0) {
+    currentDate = addCalendarDays(currentDate, 1);
+    if (isBankingDay(currentDate)) remainingDays -= 1;
   }
-  return cur;
+  return currentDate;
 }
 
 /** Number of banking days strictly after `from` up to and including `to`. */
 export function bankingDaysBetween(from: string, to: string): number {
-  if (parseIsoDate(to) < parseIsoDate(from)) return -bankingDaysBetween(to, from);
+  if (parseIsoDate(to) < parseIsoDate(from)) {
+    return -bankingDaysBetween(to, from);
+  }
+
   let count = 0;
-  let cur = from;
-  while (cur !== to) {
-    cur = addCalendarDays(cur, 1);
-    if (isBankingDay(cur)) count += 1;
+  let currentDate = from;
+  while (currentDate !== to) {
+    currentDate = addCalendarDays(currentDate, 1);
+    if (isBankingDay(currentDate)) count += 1;
   }
   return count;
 }

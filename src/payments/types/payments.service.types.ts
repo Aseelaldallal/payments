@@ -1,8 +1,7 @@
+import type { SecCode } from '../../ach/domain/sec-code';
+import type { ReceiverAccountType } from '../../shared/domain/receiver-account-type';
 import { PaymentEvent } from '../domain/payment-event.enum';
 import { PaymentStatus } from '../domain/payment-status.enum';
-
-export type ReceiverAccountType = 'consumer' | 'business';
-export type SecCode = 'PPD' | 'CCD' | 'WEB' | 'TEL';
 
 /* -------------------------------------------------------------
  * Inputs

@@ -1,5 +1,7 @@
 import { IsDateString, IsIn, IsInt, IsNotEmpty, IsString, Matches, Min } from 'class-validator';
-import { ReceiverAccountType, SecCode } from '../../types/payments.service.types';
+import { SEC_CODES } from '../../../ach/domain/sec-code';
+import type { SecCode } from '../../../ach/domain/sec-code';
+import type { ReceiverAccountType } from '../../../shared/domain/receiver-account-type';
 
 export class CreatePaymentRequestDto {
   /** Identifier of the platform partner requesting the ACH pull. */
@@ -17,7 +19,7 @@ export class CreatePaymentRequestDto {
   public receiverAccountType: ReceiverAccountType;
 
   /** NACHA Standard Entry Class code describing the entry's authorization channel. */
-  @IsIn(['PPD', 'CCD', 'WEB', 'TEL'])
+  @IsIn(SEC_CODES)
   public secCode: SecCode;
 
   /** Requested ACH effective entry date, formatted as YYYY-MM-DD. */
